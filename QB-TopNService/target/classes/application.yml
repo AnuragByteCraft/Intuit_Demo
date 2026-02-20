@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+demo:
+  schedules:
+    aggregationDelayMs: 15000
+    reconciliationDelayMs: 60000
+    forecastDelayMs: 3600000   # 1 hour (only used when forecast schedule is enabled)
+  topn:
+    defaultN: 10
+    maxN: 50
+  forecast:
+    historyDays: 90
+    horizonDaysDefault: 7
+    scheduleEnabled: false    # set true to run forecast on a schedule (e.g. daily)
+    scheduledTenantId: defaultTenant   # tenant to run scheduled forecast for
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
