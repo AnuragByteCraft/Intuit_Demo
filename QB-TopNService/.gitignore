@@ -1,0 +1,12 @@
+# Build
+target/
+
+# IDE
+.idea/
+*.iml
+
+# Python venv (Prophet script)
+.venv/
+
+# OS
+.DS_Store

@@ -6,16 +6,14 @@ import com.qb.analytics.model.ForecastPoint;
 import com.qb.analytics.model.ForecastResponse;
 import com.qb.analytics.repository.CassandraServingRepository;
 import com.qb.analytics.repository.RedisCacheRepository;
+import com.qb.analytics.config.ForecastConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Serves forecast reads: cache first, then Cassandra.
- */
+/** Serves forecast reads: cache first, then Cassandra. */
 @Service
 public class ForecastService {
 
@@ -24,19 +22,21 @@ public class ForecastService {
     private final CassandraServingRepository cassandra;
     private final RedisCacheRepository redis;
     private final ObjectMapper objectMapper;
+    private final ForecastConfig config;
 
-    @Value("${demo.forecast.horizonDaysDefault:7}")
-    private int horizonDefault;
-
-    public ForecastService(CassandraServingRepository cassandra, RedisCacheRepository redis, ObjectMapper objectMapper) {
+    public ForecastService(CassandraServingRepository cassandra,
+                           RedisCacheRepository redis,
+                           ObjectMapper objectMapper,
+                           ForecastConfig config) {
         this.cassandra = cassandra;
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.config = config;
     }
 
     public ForecastResponse getForecast(String tenantId, String merchantId, String categoryId, int horizonDays) {
-        int h = horizonDays <= 0 ? horizonDefault : horizonDays;
-        String key = ForecastKeys.cacheKey(tenantId, merchantId, categoryId, h);
+        int h = horizonDays <= 0 ? config.getHorizonDaysDefault() : horizonDays;
+        String key = ForecastWriteService.cacheKey(tenantId, merchantId, categoryId, h);
 
         String cached = redis.get(key);
         if (cached != null) {

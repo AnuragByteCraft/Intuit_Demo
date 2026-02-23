@@ -1,6 +1,5 @@
 server:
   port: 8080
-
 demo:
   schedules:
     aggregationDelayMs: 15000
@@ -12,9 +11,10 @@ demo:
   forecast:
     historyDays: 90
     horizonDaysDefault: 7
-    scheduleEnabled: false    # set true to run forecast on a schedule (e.g. daily)
-    scheduledTenantId: defaultTenant   # tenant to run scheduled forecast for
-
+    scheduleEnabled: false    # set true to run forecast on a schedule for all tenants
+    minHistoryDaysForProphet: 28   # use Prophet when points >= this; else moving average
+    prophetPythonPath: .venv/bin/python3   # Python executable (use .venv for project venv, or "python3" for system)
+    prophetScriptPath: scripts/prophet_predict.py   # path to script (relative to project root when running from QB-TopNService)
 management:
   endpoints:
     web:

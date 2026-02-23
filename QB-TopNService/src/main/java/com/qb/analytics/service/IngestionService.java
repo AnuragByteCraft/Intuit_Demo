@@ -9,15 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
-/**
- * IngestionService:
- * - validates payload (controller triggers validation)
- * - idempotency at ingress (Redis)
- * - publishes to "Kafka" (in-memory queue) quickly
- *
- * NOTE: This is still synchronous request handling at API,
- * but the heavy processing happens async after publish.
- */
+/** Idempotency at ingress (Redis); publishes to event bus. Heavy processing is async after publish. */
 @Service
 public class IngestionService {
 
@@ -32,16 +24,15 @@ public class IngestionService {
 
     public String ingest(String tenantId, TransactionEvent event) {
         String idemKey = "idem:webhook:" + tenantId + ":" + event.getTransactionId();
-        String already = redis.get(idemKey);
-        if (already != null) {
-            log.info("Ingestion idempotency hit tenantId={} transactionId={} returning existing requestId={}", tenantId, event.getTransactionId(), already);
-            return already;
-        }
-
         String requestId = UUID.randomUUID().toString();
+        // Atomic claim: only one concurrent request with same transactionId can succeed
+        if (!redis.putIfAbsent(idemKey, requestId, 24 * 3600)) {
+            String existing = redis.get(idemKey);
+            log.info("Ingestion idempotency hit tenantId={} transactionId={} returning existing requestId={}", tenantId, event.getTransactionId(), existing);
+            return existing != null ? existing : requestId;
+        }
         bus.publish(tenantId, event);
         log.info("Ingestion published to event bus tenantId={} transactionId={} requestId={}", tenantId, event.getTransactionId(), requestId);
-        redis.put(idemKey, requestId, 24 * 3600);
         return requestId;
     }
 }

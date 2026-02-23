@@ -8,12 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Minimal Cassandra simulation:
- * - daily aggregates (tenant, merchant, day, category) -> AggregateRecord
- * - materialized topN (tenant, merchant, timeframe, metric, n) -> TopNResponse
- * - forecasts (tenant, merchant, category, horizonDays) -> List<ForecastPoint>
- */
+/** Cassandra simulation: daily aggregates, materialized Top-N, forecasts. */
 @Repository
 public class CassandraServingRepository {
 
@@ -25,8 +20,8 @@ public class CassandraServingRepository {
         return tenant + ":" + merchant + ":" + day + ":" + category;
     }
 
-    private String topnKey(String tenant, String merchant, String timeframe, String metric, int n) {
-        return tenant + ":" + merchant + ":" + timeframe + ":" + metric + ":" + n;
+    private String topnKey(String tenant, String merchant, String timeframe, String bucketStart, String metric, int n) {
+        return tenant + ":" + merchant + ":" + timeframe + ":" + bucketStart + ":" + metric + ":" + n;
     }
 
     private String forecastKey(String tenant, String merchant, String category, int horizonDays) {
@@ -40,6 +35,13 @@ public class CassandraServingRepository {
             oldV.setUnits(oldV.getUnits() + newV.getUnits());
             return oldV;
         });
+    }
+
+    /** Batch merge daily aggregate deltas (one write per unique key). */
+    public void batchMergeDailyAggregates(Collection<AggregateRecord> records) {
+        for (AggregateRecord r : records) {
+            upsertDailyAggregate(r);
+        }
     }
 
     public List<AggregateRecord> fetchDailyAggregates(String tenantId, String merchantId, String startDayInclusive, String endDayInclusive) {
@@ -58,11 +60,12 @@ public class CassandraServingRepository {
     }
 
     public void saveMaterializedTopN(TopNResponse resp) {
-        topnStore.put(topnKey(resp.getTenantId(), resp.getMerchantId(), resp.getTimeframe(), resp.getMetric(), resp.getN()), resp);
+        String bucket = resp.getBucketStart() != null ? resp.getBucketStart() : "";
+        topnStore.put(topnKey(resp.getTenantId(), resp.getMerchantId(), resp.getTimeframe(), bucket, resp.getMetric(), resp.getN()), resp);
     }
 
-    public TopNResponse fetchMaterializedTopN(String tenantId, String merchantId, String timeframe, String metric, int n) {
-        return topnStore.get(topnKey(tenantId, merchantId, timeframe, metric, n));
+    public TopNResponse fetchMaterializedTopN(String tenantId, String merchantId, String timeframe, String bucketStart, String metric, int n) {
+        return topnStore.get(topnKey(tenantId, merchantId, timeframe, bucketStart != null ? bucketStart : "", metric, n));
     }
 
     public void saveForecast(String tenantId, String merchantId, String categoryId, int horizonDays, List<ForecastPoint> points) {
@@ -89,5 +92,16 @@ public class CassandraServingRepository {
             }
         }
         return cats;
+    }
+
+    /** Tenant IDs that have daily aggregates (for scheduled forecast). */
+    public Set<String> listTenantIds() {
+        Set<String> tenants = new HashSet<>();
+        for (AggregateRecord r : dailyAgg.values()) {
+            if (r.getTenantId() != null && !r.getTenantId().isBlank()) {
+                tenants.add(r.getTenantId());
+            }
+        }
+        return tenants;
     }
 }

@@ -11,11 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * ForecastController:
- * - run pipeline (demo)
- * - fetch forecast
- */
+/** Run pipeline and fetch forecast. */
 @RestController
 @RequestMapping("/api/v1/forecast")
 public class ForecastController {
@@ -30,8 +26,8 @@ public class ForecastController {
     }
 
     @PostMapping("/run")
-    public ResponseEntity<Map<String, Object>> run() {
-        String tenantId = TenantContext.getTenantId();
+    public ResponseEntity<Map<String, Object>> run(@RequestBody(required = false) Map<String, String> body) {
+        String tenantId = (body != null && body.get("tenantId") != null) ? body.get("tenantId") : TenantContext.getTenantId();
         log.info("Forecast pipeline run triggered tenantId={}", tenantId);
         runner.run(tenantId);
         log.info("Forecast pipeline run completed tenantId={}", tenantId);

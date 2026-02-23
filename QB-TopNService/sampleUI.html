@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QB Commerce – Merchant Dashboard</title>
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #f0f4f8 0%, #e2e8f0 100%);
+    margin: 0;
+    color: #1e293b;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+    padding: 24px 16px;
+  }
+  .header h1 {
+    margin: 0 0 6px 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+  .header .sub {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+  .card {
+    background: #fff;
+    padding: 24px;
+    margin-bottom: 24px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+  .card:first-of-type { border-left: 4px solid #6366f1; }
+  .card:nth-of-type(2) { border-left: 4px solid #f59e0b; }
+  .card h2 {
+    margin: 0 0 18px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #334155;
+  }
+  .row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  input, select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    min-width: 160px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+  button {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.05s;
+  }
+  button:hover { background: #4f46e5; }
+  button:active { transform: scale(0.98); }
+  .btn-premium {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+  .btn-premium:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  }
+  .or {
+    font-weight: 600;
+    color: #94a3b8;
+    padding: 0 6px;
+    font-size: 0.8rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  th, td {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 0.875rem;
+  }
+  th {
+    background: #f8fafc;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  tbody tr:hover { background: #fafafa; }
+  tr:last-child td { border-bottom: none; }
+  .note {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-top: 10px;
+  }
+  .error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 0.875rem;
+  }
+  .ok {
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 0.875rem;
+  }
+  .small { min-width: 120px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <header class="header">
+    <h1>QB Commerce</h1>
+    <p class="sub">Merchant Dashboard</p>
+  </header>
+  <!-- ================= TOP-N ================= -->
+  <div class="card">
+    <h2>Top-N Categories</h2>
+
+    <div class="row">
+      <input id="tenantTopn" placeholder="Tenant ID" value="Shopify" />
+      <input id="merchantTopn" placeholder="Merchant ID" value="Bose" />
+
+      <select id="timeframe" class="small">
+        <option value="NA">NA</option>
+        <option>DAILY</option>
+        <option selected>WEEKLY</option>
+        <option>MONTHLY</option>
+        <option>YEARLY</option>
+        <option>CUSTOM</option>
+      </select>
+
+      <select id="metric" class="small">
+        <option value="NA">NA</option>
+        <option selected>REVENUE</option>
+        <option>UNITS</option>
+      </select>
+
+      <select id="topN" class="small">
+        <option value="NA">NA</option>
+        <option>5</option>
+        <option selected>10</option>
+        <option>15</option>
+      </select>
+
+      <button onclick="getTopN()">Get Top-N</button>
+    </div>
+
+    <div class="row" id="customDates" style="display:none;">
+      <input id="startDate" type="date" />
+      <input id="endDate" type="date" />
+      <span class="note">CUSTOM range: pick start & end dates</span>
+    </div>
+
+    <div id="topnMsg"></div>
+    <div id="topnResult"></div>
+  </div>
+
+  <!-- ================= FORECAST ================= -->
+  <div class="card">
+    <h2>Forecast</h2>
+
+    <div class="row">
+      <input id="tenantFc" placeholder="Tenant ID" value="Shopify" />
+      <input id="merchantFc" placeholder="Merchant ID" value="Bose" />
+
+      <!-- Category + Subcategory -->
+      <select id="categorySelect">
+        <option value="NA">NA</option>
+        <option value="Electronics" selected>Electronics</option>
+        <option value="Pharmacy">Pharmacy</option>
+        <option value="FMCG">FMCG</option>
+        <option value="Automotive">Automotive</option>
+      </select>
+
+      <select id="subCategorySelect">
+        <option value="NA">NA</option>
+        <option value="Laptop" selected>Laptop</option>
+        <option value="Mobile">Mobile</option>
+        <option value="Headphones">Headphones</option>
+        <option value="TV">TV</option>
+      </select>
+
+      <select id="horizon" class="small">
+        <option value="NA">NA</option>
+        <option value="7" selected>7 Days</option>
+        <option value="14">14 Days</option>
+        <option value="30">30 Days</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <button onclick="getForecast()">Get Forecast</button>
+      <span class="or">OR</span>
+      <button class="btn-premium" onclick="runForecast()">⭐ Run Forecast (Premium)</button>
+    </div>
+
+    <div class="note">
+      Get Forecast = fast read of latest saved predictions. Premium Run Forecast = triggers batch recompute.
+    </div>
+
+    <div id="forecastMsg"></div>
+    <div id="forecastResult"></div>
+  </div>
+</div>
+
+<script>
+  // Fixed base URL for demo
+  const BASE_URL = "http://localhost:8080";
+
+  // Category -> Subcategory mapping (UI-level)
+  // We'll send categoryId as "Category/SubCategory" by default.
+  const CATEGORY_MAP = {
+    "NA": ["NA"],
+    "Electronics": ["NA", "Laptop", "Mobile", "Headphones", "TV"],
+    "Pharmacy": ["NA", "OTC", "Prescription", "Wellness", "Supplements"],
+    "FMCG": ["NA", "Snacks", "Beverages", "PersonalCare", "HomeCare"],
+    "Automotive": ["NA", "Tyres", "Batteries", "Accessories", "EngineOil"]
+  };
+
+  // ----------- Wiring category dropdown -----------
+  function initCategoryDropdowns(){
+    const cat = document.getElementById("categorySelect");
+    const sub = document.getElementById("subCategorySelect");
+
+    function refillSub(){
+      const list = CATEGORY_MAP[cat.value] || ["NA"];
+      sub.innerHTML = "";
+      list.forEach((x, idx) => {
+        const opt = document.createElement("option");
+        opt.value = x;
+        opt.textContent = x;
+        if (idx === 0) opt.selected = true;
+        sub.appendChild(opt);
+      });
+    }
+
+    cat.addEventListener("change", refillSub);
+    refillSub();
+  }
+
+  // ----------- Custom date show/hide + default dates -----------
+  function initTimeframe(){
+    const tf = document.getElementById("timeframe");
+    const cd = document.getElementById("customDates");
+    const startInput = document.getElementById("startDate");
+    const endInput = document.getElementById("endDate");
+    function setDefaultCustomDates(){
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 7);
+      endInput.value = end.toISOString().slice(0, 10);
+      startInput.value = start.toISOString().slice(0, 10);
+    }
+    tf.addEventListener("change", () => {
+      if (tf.value === "CUSTOM") {
+        cd.style.display = "flex";
+        if (!startInput.value || !endInput.value) setDefaultCustomDates();
+      } else {
+        cd.style.display = "none";
+      }
+    });
+  }
+
+  function esc(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function showMsg(id, type, text){
+    const el = document.getElementById(id);
+    if (!text){
+      el.innerHTML = "";
+      return;
+    }
+    el.innerHTML = `<div class="${type}">${esc(text)}</div>`;
+  }
+
+  function normalizeArray(payload){
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.results)) return payload.results;
+    return [];
+  }
+
+  // ================= TOP N =================
+  async function getTopN(){
+    showMsg("topnMsg","", "");
+    document.getElementById("topnResult").innerHTML = "";
+
+    const tenant = document.getElementById("tenantTopn").value.trim();
+    const merchant = document.getElementById("merchantTopn").value.trim();
+    const timeframe = document.getElementById("timeframe").value;
+    const metric = document.getElementById("metric").value;
+    const n = document.getElementById("topN").value;
+
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    // Adjust param names here if your API differs
+    const params = new URLSearchParams({
+      tenantId: tenant,
+      merchantId: merchant,
+      timeframe: timeframe,
+      metric: metric,
+      n: n
+    });
+
+    if (timeframe === "CUSTOM"){
+      if (!startDate || !endDate){
+        showMsg("topnMsg","error","For CUSTOM timeframe, please select both startDate and endDate.");
+        return;
+      }
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
+
+    const url = `${BASE_URL}/api/v1/analytics/topn?${params.toString()}`;
+
+    try{
+      const res = await fetch(url);
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+
+      if (!res.ok){
+        showMsg("topnMsg","error",`Top-N failed (HTTP ${res.status}).`);
+        return;
+      }
+
+      const items = normalizeArray(json);
+      if (!items.length){
+        showMsg("topnMsg","ok","No Top-N rows returned.");
+        return;
+      }
+
+      // Normalize fields for display
+      const rows = items.map((it, idx) => ({
+        rank: it.rank ?? (idx + 1),
+        categoryId: it.categoryId ?? it.category ?? it.category_id ?? "",
+        value: it.value ?? it.metricValue ?? it.amount ?? it.units ?? ""
+      }));
+
+      renderTable("topnResult", ["rank","categoryId","value"], rows);
+    }catch(e){
+      showMsg("topnMsg","error","Network error while calling Top-N API. Check that service is running and CORS is allowed.");
+    }
+  }
+
+  // ================= FORECAST =================
+  function getSelectedCategoryId(){
+    const cat = document.getElementById("categorySelect").value;
+    const sub = document.getElementById("subCategorySelect").value;
+    // Default: send a combined category identifier (you can change to IDs if your API expects numeric ids)
+    return `${cat}/${sub}`;
+  }
+
+  async function runForecast(){
+    showMsg("forecastMsg","", "");
+    document.getElementById("forecastResult").innerHTML = "";
+
+    const tenant = document.getElementById("tenantFc").value.trim();
+    const merchant = document.getElementById("merchantFc").value.trim();
+    const categoryId = getSelectedCategoryId();
+    const horizonDays = Number(document.getElementById("horizon").value);
+
+    // Adjust body keys here if your API differs
+    const body = { tenantId: tenant, merchantId: merchant, categoryId: categoryId, horizonDays: horizonDays };
+
+    try{
+      const res = await fetch(`${BASE_URL}/api/v1/forecast/run`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok){
+        showMsg("forecastMsg","error",`Run Forecast failed (HTTP ${res.status}).`);
+        return;
+      }
+
+      showMsg("forecastMsg","ok","Premium forecast triggered ✅ Now click Get Forecast to load predictions.");
+    }catch(e){
+      showMsg("forecastMsg","error","Network error while calling Run Forecast. Check service/CORS.");
+    }
+  }
+
+  async function getForecast(){
+    showMsg("forecastMsg","", "");
+    document.getElementById("forecastResult").innerHTML = "";
+
+    const tenant = document.getElementById("tenantFc").value.trim();
+    const merchant = document.getElementById("merchantFc").value.trim();
+    const categoryId = getSelectedCategoryId();
+    const horizonDays = document.getElementById("horizon").value;
+
+    // Adjust param names here if your API differs
+    const params = new URLSearchParams({
+      tenantId: tenant,
+      merchantId: merchant,
+      categoryId: categoryId,
+      horizonDays: horizonDays
+    });
+
+    const url = `${BASE_URL}/api/v1/forecast?${params.toString()}`;
+
+    try{
+      const res = await fetch(url);
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+
+      if (!res.ok){
+        showMsg("forecastMsg","error",`Get Forecast failed (HTTP ${res.status}).`);
+        return;
+      }
+
+      const points = normalizeArray(json);
+      if (!points.length){
+        showMsg("forecastMsg","ok","No forecast points returned yet. If you just ran Premium forecast, try again in a few seconds.");
+        return;
+      }
+
+      // Normalize fields: date + predicted + optional low/high
+      const rows = points.map(p => ({
+        date: p.date ?? p.ds ?? p.day ?? "",
+        predicted: p.predicted ?? p.yhat ?? p.value ?? "",
+        low: p.low ?? p.yhatLower ?? p.lower ?? "",
+        high: p.high ?? p.yhatUpper ?? p.upper ?? ""
+      }));
+
+      const hasBand = rows.some(r => String(r.low).trim() || String(r.high).trim());
+      if (hasBand) renderTable("forecastResult", ["date","predicted","low","high"], rows);
+      else renderTable("forecastResult", ["date","predicted"], rows);
+
+    }catch(e){
+      showMsg("forecastMsg","error","Network error while calling Get Forecast API. Check service/CORS.");
+    }
+  }
+
+  // ----------- Table renderer -----------
+  function renderTable(containerId, cols, rows){
+    const el = document.getElementById(containerId);
+
+    let html = "<table><thead><tr>";
+    cols.forEach(c => html += `<th>${esc(c)}</th>`);
+    html += "</tr></thead><tbody>";
+
+    rows.forEach(r => {
+      html += "<tr>";
+      cols.forEach(c => html += `<td>${esc(r[c])}</td>`);
+      html += "</tr>";
+    });
+
+    html += "</tbody></table>";
+    el.innerHTML = html;
+  }
+
+  // Init
+  initCategoryDropdowns();
+  initTimeframe();
+</script>
+</body>
+</html>

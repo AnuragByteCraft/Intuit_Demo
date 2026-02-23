@@ -9,11 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 
-/**
- * ReconciliationService: dedicated to syncing / checking consistency between
- * Postgres (ledger) and Cassandra (aggregates). Runs on a schedule.
- * For demo: logs that reconciliation ran for a given day.
- */
+/** Sync/check Postgres ledger vs Cassandra aggregates on a schedule; logs for demo. */
 @Service
 public class ReconciliationService {
 

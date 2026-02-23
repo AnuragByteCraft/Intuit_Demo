@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ForecastResponse {
-    private static final String MODEL_USED = "MOVING_AVERAGE_BASELINE";
+    public static final String MODEL_USED_BASELINE = "MOVING_AVERAGE_BASELINE";
+    public static final String MODEL_USED_PROPHET = "PROPHET";
+    private static final String MODEL_USED = MODEL_USED_BASELINE;
 
     private String tenantId;
     private String merchantId;
@@ -36,14 +38,22 @@ public class ForecastResponse {
     public List<ForecastPoint> getPoints() { return points; }
     public void setPoints(List<ForecastPoint> points) { this.points = points; }
 
+    /** Alias for UI: same as points so normalizeArray(payload.data) works. */
+    public List<ForecastPoint> getData() { return points; }
+
     /** Single place to build a forecast response (used by read path and inference write/cache). */
     public static ForecastResponse of(String tenantId, String merchantId, String categoryId, int horizonDays, List<ForecastPoint> points) {
+        return of(tenantId, merchantId, categoryId, horizonDays, points, MODEL_USED);
+    }
+
+    /** Overload with explicit modelUsed (e.g. PROPHET). */
+    public static ForecastResponse of(String tenantId, String merchantId, String categoryId, int horizonDays, List<ForecastPoint> points, String modelUsed) {
         ForecastResponse r = new ForecastResponse();
         r.setTenantId(tenantId);
         r.setMerchantId(merchantId);
         r.setCategoryId(categoryId);
         r.setHorizonDays(horizonDays);
-        r.setModelUsed(MODEL_USED);
+        r.setModelUsed(modelUsed != null ? modelUsed : MODEL_USED);
         r.setGeneratedAt(OffsetDateTime.now().toString());
         if (points != null) r.setPoints(points);
         return r;

@@ -8,10 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * AnalyticsController:
- * Dashboard reads for Top-N; read path is delegated to QueryService.
- */
+/** Dashboard reads for Top-N; delegates to QueryService. */
 @RestController
 @RequestMapping("/api/v1/analytics")
 public class AnalyticsController {
@@ -29,7 +26,11 @@ public class AnalyticsController {
                                             @RequestParam(defaultValue = "REVENUE") String metric,
                                             @RequestParam(defaultValue = "10") int n,
                                             @RequestParam(required = false) String start,
-                                            @RequestParam(required = false) String end) {
+                                            @RequestParam(required = false) String end,
+                                            @RequestParam(required = false) String startDate,
+                                            @RequestParam(required = false) String endDate) {
+        if (start == null && startDate != null) start = startDate;
+        if (end == null && endDate != null) end = endDate;
         String tenantId = TenantContext.getTenantId();
         log.info("Analytics topn request tenantId={} merchantId={} timeframe={} metric={} n={} start={} end={}", tenantId, merchantId, timeframe, metric, n, start, end);
         TopNResponse resp = queryService.getTopN(tenantId, merchantId, timeframe, metric, n, start, end);

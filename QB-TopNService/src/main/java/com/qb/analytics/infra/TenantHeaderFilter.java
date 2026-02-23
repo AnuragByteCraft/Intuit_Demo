@@ -19,7 +19,8 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
 
         String tenantId = request.getHeader("X-Tenant-Id");
         if (tenantId == null || tenantId.isBlank()) {
-            tenantId = "defaultTenant";
+            String fromQuery = request.getParameter("tenantId");
+            tenantId = (fromQuery != null && !fromQuery.isBlank()) ? fromQuery : "defaultTenant";
         }
 
         try {

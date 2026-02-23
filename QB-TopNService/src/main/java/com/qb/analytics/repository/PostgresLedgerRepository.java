@@ -3,14 +3,11 @@ package com.qb.analytics.repository;
 import com.qb.analytics.model.TransactionEvent;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Minimal PostgreSQL Ledger simulation:
- * - Primary key = (tenantId, transactionId)
- * - Idempotent insert (ignore duplicates)
- */
+/** Ledger simulation: primary key (tenantId, transactionId), idempotent insert. */
 @Repository
 public class PostgresLedgerRepository {
 
@@ -25,7 +22,8 @@ public class PostgresLedgerRepository {
         return ledger.putIfAbsent(k, e) == null; // true if inserted new
     }
 
+/** Snapshot returns shallow copy so aggregation has point-in-time view. */
     public Map<String, TransactionEvent> snapshot() {
-        return ledger;
+        return new HashMap<>(ledger);
     }
 }

@@ -26,4 +26,11 @@ public class ForecastPoint {
 
     public double getConfidenceHigh() { return confidenceHigh; }
     public void setConfidenceHigh(double confidenceHigh) { this.confidenceHigh = confidenceHigh; }
+
+    /** Alias for UI: same as predictedSales. */
+    public double getPredicted() { return predictedSales; }
+    /** Alias for UI: same as confidenceLow. */
+    public double getLow() { return confidenceLow; }
+    /** Alias for UI: same as confidenceHigh. */
+    public double getHigh() { return confidenceHigh; }
 }

@@ -11,19 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
-/**
- * FeatureExtractionService:
- *
- * "Features" in simple words:
- * - small numbers we compute from history that help the model predict the future
- * Examples:
- * - avgSales: average daily sales in last 90 days
- * - last7Avg: average of last 7 days
- * - volatility: how much sales fluctuate (stable vs noisy)
- *
- * We store computed features in S3 Feature Store (simulated).
- */
+/** Builds features (avgSales, last7Avg, volatility) and stores in S3; provides points count and history JSON for Prophet. */
 @Service
 public class FeatureExtractionService {
 
@@ -45,12 +35,18 @@ public class FeatureExtractionService {
 
         List<AggregateRecord> rows = cassandra.fetchDailyAggregates(tenantId, merchantId, start, end);
 
-        // filter to category
-        List<Double> series = new ArrayList<>();
+        // filter to category, then sort by day so last7Avg is truly "last 7 days by date"
+        List<AggregateRecord> forCategory = new ArrayList<>();
         for (AggregateRecord r : rows) {
             if (categoryId.equals(r.getCategoryId())) {
-                series.add(r.getRevenue());
+                forCategory.add(r);
             }
+        }
+        forCategory.sort(Comparator.comparing(AggregateRecord::getDay));
+
+        List<Double> series = new ArrayList<>();
+        for (AggregateRecord r : forCategory) {
+            series.add(r.getRevenue());
         }
 
         double avg = average(series);
@@ -70,7 +66,51 @@ public class FeatureExtractionService {
             return;
         }
         s3.putFeatures(tenantId, merchantId, categoryId, blob);
+        // Store history JSON from same fetch so getHistoryJson can read from S3 (avoids double fetch for Prophet).
+        String historyJson = toHistoryJson(forCategory);
+        s3.putHistory(tenantId, merchantId, categoryId, historyJson);
         log.info("FeatureExtraction built and stored tenantId={} merchantId={} categoryId={} dataPoints={} avgSales={} last7Avg={}", tenantId, merchantId, categoryId, series.size(), avg, last7);
+    }
+
+    private String toHistoryJson(List<AggregateRecord> forCategory) {
+        List<Map<String, Object>> history = forCategory.stream()
+                .map(r -> Map.<String, Object>of("date", r.getDay(), "value", r.getRevenue()))
+                .collect(Collectors.toList());
+        try {
+            return objectMapper.writeValueAsString(history);
+        } catch (JsonProcessingException e) {
+            log.warn("FeatureExtraction toHistoryJson failed", e);
+            return "[]";
+        }
+    }
+
+    /** Points count from stored features; used to choose baseline vs Prophet. */
+    public int getPointsCountFromStoredFeatures(String tenantId, String merchantId, String categoryId) {
+        String featuresJson = s3.getFeatures(tenantId, merchantId, categoryId);
+        if (featuresJson == null) return 0;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(featuresJson);
+            com.fasterxml.jackson.databind.JsonNode p = root.get("points");
+            return p != null && p.isNumber() ? p.asInt() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** History JSON for Prophet: array of {date, value}; from S3 or Cassandra. */
+    public String getHistoryJson(String tenantId, String merchantId, String categoryId, int historyDays) {
+        String cached = s3.getHistory(tenantId, merchantId, categoryId);
+        if (cached != null && !cached.isEmpty()) return cached;
+
+        String end = LocalDate.now().toString();
+        String start = LocalDate.now().minusDays(historyDays).toString();
+        List<AggregateRecord> rows = cassandra.fetchDailyAggregates(tenantId, merchantId, start, end);
+        List<AggregateRecord> forCategory = new ArrayList<>();
+        for (AggregateRecord r : rows) {
+            if (categoryId.equals(r.getCategoryId())) forCategory.add(r);
+        }
+        forCategory.sort(Comparator.comparing(AggregateRecord::getDay));
+        return toHistoryJson(forCategory);
     }
 
     private static List<Double> lastN(List<Double> series, int n) {

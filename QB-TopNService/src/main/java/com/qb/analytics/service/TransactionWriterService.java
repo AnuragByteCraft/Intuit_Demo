@@ -8,20 +8,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * TransactionWriterService:
- * - background consumer of events
- * - writes to PostgreSQL ledger with DB-level idempotency (upsert/ignore)
- */
+/** Background consumer: writes events to ledger with idempotent upsert. */
 @Service
 public class TransactionWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionWriterService.class);
+    private static final int SHUTDOWN_JOIN_SECONDS = 10;
+
     private final InMemoryEventBus bus;
     private final PostgresLedgerRepository postgres;
+    private volatile Thread consumerThread;
 
     public TransactionWriterService(InMemoryEventBus bus, PostgresLedgerRepository postgres) {
         this.bus = bus;
@@ -32,8 +32,27 @@ public class TransactionWriterService {
     public void start() {
         Thread t = new Thread(this::consumeLoop, "transaction-writer");
         t.setDaemon(false);
+        this.consumerThread = t;
         t.start();
         log.info("TransactionWriter consumer thread started (polling event bus for ledger writes)");
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        Thread t = consumerThread;
+        if (t != null && t.isAlive()) {
+            log.info("TransactionWriter shutting down: interrupting consumer thread");
+            t.interrupt();
+            try {
+                t.join(TimeUnit.SECONDS.toMillis(SHUTDOWN_JOIN_SECONDS));
+                if (t.isAlive()) {
+                    log.warn("TransactionWriter consumer did not exit within {}s", SHUTDOWN_JOIN_SECONDS);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while waiting for TransactionWriter consumer", e);
+            }
+        }
     }
 
     private static final long POLL_IDLE_SECONDS = 30;
