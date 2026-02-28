@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/** Serves forecast reads: cache first, then Cassandra. */
+/**
+ * Serves forecast reads: cache first, then Cassandra.
+ */
 @Service
 public class ForecastService {
 

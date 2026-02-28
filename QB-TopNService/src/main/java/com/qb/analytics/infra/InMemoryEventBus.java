@@ -9,7 +9,13 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-/** In-memory Kafka-like bus: publish and poll. */
+/**
+ * Minimal "Kafka-like" event bus for demo:
+ * - Ingestion publishes events
+ * - Consumers poll from a queue
+ *
+ * This keeps the app runnable locally without real Kafka.
+ */
 @Component
 public class InMemoryEventBus {
 
@@ -35,7 +41,7 @@ public class InMemoryEventBus {
         return queue.take();
     }
 
-    /** Poll with timeout; returns null if no envelope (lets consumers log when idle). */
+    /** Waits up to the given time for an envelope; returns null if timeout. Lets consumers log "still listening" when idle. */
     public Envelope poll(long timeout, TimeUnit unit) throws InterruptedException {
         return queue.poll(timeout, unit);
     }

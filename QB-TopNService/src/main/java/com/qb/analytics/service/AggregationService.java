@@ -21,7 +21,16 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
-/** Scheduled micro-batch: ledger snapshot → daily aggregates → materialized Top-N (Cassandra + cache). */
+/**
+ * AggregationService:
+ * - scheduled micro-batch job
+ * - reads ledger snapshot (simulates consuming from Kafka into OLAP)
+ * - writes daily aggregates into Cassandra
+ * - materializes Top-N into Cassandra + hot cache
+ *
+ * In real system: this would be Kafka consumer group + stateful aggregation.
+ * For demo: we keep it simple and deterministic.
+ */
 @Service
 public class AggregationService {
 
@@ -123,6 +132,20 @@ public class AggregationService {
             return stored;
         }
         TopNResponse computed = computeTopNFromDaily(tenantId, merchantId, timeframe, metric, n, range.startDay, range.endDay);
+        // Demo-friendly: if current bucket has no data, use the bucket that contains the latest aggregate day (e.g. eventTime 2026-03-03 when server is Feb 28)
+        if (computed.getItems().isEmpty()) {
+            String latestDay = cassandra.getLatestAggregateDay(tenantId, merchantId);
+            if (latestDay != null) {
+                LocalDate latest = LocalDate.parse(latestDay);
+                BucketRange fallbackRange = bucketRange(timeframe, latest);
+                if (!fallbackRange.bucketStart.equals(range.bucketStart)) {
+                    computed = computeTopNFromDaily(tenantId, merchantId, timeframe, metric, n, fallbackRange.startDay, fallbackRange.endDay);
+                    range = fallbackRange;
+                    cacheKey = materializedCacheKey(tenantId, merchantId, timeframe, range.bucketStart, metric, n);
+                    log.info("Aggregation getMaterializedTopN fallback to bucket with data tenantId={} merchantId={} timeframe={} bucket={}", tenantId, merchantId, timeframe, range.bucketStart);
+                }
+            }
+        }
         computed.setBucketStart(range.bucketStart);
         cassandra.saveMaterializedTopN(computed);
         redis.put(cacheKey, toJson(computed), 60);
@@ -203,7 +226,10 @@ public class AggregationService {
         }
     }
 
-/** Resolves date range for materialized Top-N: DAILY (today), WEEKLY (Mon–Sun), MONTHLY, YEARLY. */
+    /**
+     * For materialized Top-N: resolve the date range for the given timeframe and "as-of" date.
+     * DAILY: single day (today); WEEKLY: Monday–Sunday; MONTHLY: first–last day of month; YEARLY: Jan 1–Dec 31.
+     */
     public static BucketRange bucketRange(String timeframe, LocalDate asOf) {
         if (asOf == null) asOf = LocalDate.now();
         String bucketStart;

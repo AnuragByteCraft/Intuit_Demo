@@ -5,7 +5,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** S3 feature store simulation: feature blobs keyed by (tenant, merchant, category). */
+/**
+ * Minimal S3 Feature Store simulation:
+ * - Stores "feature blobs" keyed by (tenant, merchant, category)
+ * - In reality: Parquet files partitioned by tenant/merchant/date
+ */
 @Repository
 public class S3FeatureStoreRepository {
 
@@ -25,7 +29,7 @@ public class S3FeatureStoreRepository {
         return featureBlobs.get(key(tenantId, merchantId, categoryId));
     }
 
-    /** Prophet history JSON stored when building features. */
+    /** History JSON for Prophet (stored by FeatureExtractionService when building features to avoid double fetch). */
     public void putHistory(String tenantId, String merchantId, String categoryId, String historyJson) {
         featureBlobs.put(key(tenantId, merchantId, categoryId) + HISTORY_SUFFIX, historyJson);
     }

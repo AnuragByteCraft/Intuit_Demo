@@ -7,7 +7,9 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Basic tests for bucketRange (date range for Top-N). */
+/**
+ * Basic tests for AggregationService.bucketRange (date range resolution for Top-N).
+ */
 class AggregationServiceTest {
 
     @Test

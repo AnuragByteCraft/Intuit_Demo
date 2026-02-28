@@ -12,7 +12,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/** Writes forecast points to Cassandra and Redis; shared by baseline and Prophet. Cache key format matches read path. */
+/**
+ * Shared write path: persist forecast points to Cassandra and cache (Redis).
+ * Used by both Moving Average and Prophet paths. Cache key format is here so read path (ForecastService) matches.
+ */
 @Service
 public class ForecastWriteService {
 
@@ -38,13 +41,17 @@ public class ForecastWriteService {
         this.objectMapper = objectMapper;
     }
 
-    /** Write points with MOVING_AVERAGE_BASELINE. */
+    /**
+     * Write forecast points to store and cache. Uses MOVING_AVERAGE_BASELINE as modelUsed.
+     */
     public void write(String tenantId, String merchantId, String categoryId, int horizonDays,
                       List<ForecastPoint> points) {
         write(tenantId, merchantId, categoryId, horizonDays, points, ForecastResponse.MODEL_USED_BASELINE);
     }
 
-    /** Write points with given modelUsed (e.g. PROPHET). */
+    /**
+     * Write forecast points to store and cache with given modelUsed (e.g. PROPHET).
+     */
     public void write(String tenantId, String merchantId, String categoryId, int horizonDays,
                       List<ForecastPoint> points, String modelUsed) {
         if (points == null || points.isEmpty()) return;

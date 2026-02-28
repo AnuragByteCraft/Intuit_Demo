@@ -13,7 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Orchestrates forecast: targets → features → Moving Average or Prophet → ForecastWriteService. */
+/**
+ * Orchestrator only: select targets, build features, then either Moving Average or Prophet path, then write via ForecastWriteService.
+ * No prediction logic here; clear separation: MovingAverageForecastService vs ProphetForecastService.
+ */
 @Service
 public class ForecastPipelineRunner {
 
@@ -40,7 +43,9 @@ public class ForecastPipelineRunner {
         this.config = config;
     }
 
-    /** Run pipeline for all tenants with aggregate data (used by scheduler). */
+    /**
+     * Run forecast pipeline for all tenants that have aggregate data. Used by the scheduled job.
+     */
     public void runForAllTenants() {
         Set<String> tenantIds = cassandra.listTenantIds();
         log.info("ForecastPipeline scheduled run for all tenants count={}", tenantIds.size());

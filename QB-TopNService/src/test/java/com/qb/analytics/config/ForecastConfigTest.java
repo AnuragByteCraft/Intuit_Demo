@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Basic tests: default values and setters. */
+/**
+ * Basic tests: default values and setters.
+ */
 class ForecastConfigTest {
 
     @Test

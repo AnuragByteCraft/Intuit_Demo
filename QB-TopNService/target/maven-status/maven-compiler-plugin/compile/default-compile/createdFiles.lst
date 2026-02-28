@@ -13,6 +13,7 @@ com/qb/analytics/model/ForecastResponse.class
 com/qb/analytics/infra/InMemoryEventBus$Envelope.class
 com/qb/analytics/infra/TenantHeaderFilter.class
 com/qb/analytics/service/TransactionWriterService.class
+com/qb/analytics/controller/RootController.class
 com/qb/analytics/controller/AnalyticsController.class
 com/qb/analytics/config/ForecastConfig.class
 com/qb/analytics/model/TopNResponse$Item.class
@@ -34,3 +35,4 @@ com/qb/analytics/service/forecast/ForecastPipelineScheduler.class
 com/qb/analytics/service/ReconciliationService.class
 com/qb/analytics/service/IngestionService.class
 com/qb/analytics/service/forecast/ProphetScriptRunner.class
+com/qb/analytics/model/IngestResult.class

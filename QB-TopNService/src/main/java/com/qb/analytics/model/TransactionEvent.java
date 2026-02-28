@@ -9,7 +9,7 @@ public class TransactionEvent {
     @NotBlank
     private String transactionId;
 
-    @NotBlank
+    /** Set from X-Merchant-Id header in controller; not required in body. */
     private String merchantId;
 
     @NotBlank

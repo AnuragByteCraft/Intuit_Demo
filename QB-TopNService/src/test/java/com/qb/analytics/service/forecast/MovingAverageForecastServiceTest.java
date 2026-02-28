@@ -11,7 +11,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Basic tests: quality gate (points >= 7), predict from champion. */
+/**
+ * Basic tests: quality gate (configurable minPointsForBaseline), predict from champion returns flat line.
+ */
 class MovingAverageForecastServiceTest {
 
     private S3FeatureStoreRepository s3;
@@ -23,19 +25,28 @@ class MovingAverageForecastServiceTest {
         s3 = new S3FeatureStoreRepository();
         config = new ForecastConfig();
         config.setHorizonDaysDefault(7);
+        config.setMinPointsForBaseline(1); // demo default: 1 day of data is enough
         service = new MovingAverageForecastService(s3, new ObjectMapper(), config);
     }
 
     @Test
-    void passesQualityGate_lessThan7Points_returnsFalse() {
+    void passesQualityGate_whenMinIs7_andLessThan7Points_returnsFalse() {
+        config.setMinPointsForBaseline(7);
+        service = new MovingAverageForecastService(s3, new ObjectMapper(), config);
         String modelJson = "{\"type\":\"MOVING_AVERAGE_BASELINE\",\"features\":{\"avgSales\":100,\"volatility\":10,\"points\":5}}";
         assertThat(service.passesQualityGate(modelJson)).isFalse();
     }
 
     @Test
-    void passesQualityGate_sevenOrMorePoints_returnsTrue() {
-        String modelJson = "{\"type\":\"MOVING_AVERAGE_BASELINE\",\"features\":{\"avgSales\":100,\"volatility\":10,\"points\":7}}";
+    void passesQualityGate_onePoint_withMinOne_returnsTrue() {
+        String modelJson = "{\"type\":\"MOVING_AVERAGE_BASELINE\",\"features\":{\"avgSales\":100,\"volatility\":10,\"points\":1}}";
         assertThat(service.passesQualityGate(modelJson)).isTrue();
+    }
+
+    @Test
+    void passesQualityGate_zeroPoints_returnsFalse() {
+        String modelJson = "{\"type\":\"MOVING_AVERAGE_BASELINE\",\"features\":{\"avgSales\":100,\"volatility\":10,\"points\":0}}";
+        assertThat(service.passesQualityGate(modelJson)).isFalse();
     }
 
     @Test
@@ -45,8 +56,8 @@ class MovingAverageForecastServiceTest {
     }
 
     @Test
-    void runFor_featuresWith7Points_savesChampionAndReturnsPoints() {
-        String featuresJson = "{\"avgSales\":100.0,\"last7Avg\":95.0,\"volatility\":15.0,\"points\":7}";
+    void runFor_featuresWithOnePoint_savesChampionAndReturnsPoints() {
+        String featuresJson = "{\"avgSales\":100.0,\"last7Avg\":95.0,\"volatility\":15.0,\"points\":1}";
         s3.putFeatures("t1", "m1", "cat1", featuresJson);
         List<ForecastPoint> result = service.runFor("t1", "m1", "cat1", 7);
         assertThat(result).hasSize(7);

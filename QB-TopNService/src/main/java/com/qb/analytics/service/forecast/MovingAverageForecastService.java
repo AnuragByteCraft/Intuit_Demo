@@ -16,12 +16,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Baseline forecast: train → quality gate (points ≥ 7) → champion → predict. Caller uses ForecastWriteService to persist. */
+/**
+ * Moving Average (baseline) forecast path only.
+ * Train: pack features → model JSON. Quality gate: points >= config.minPointsForBaseline (demo default 1). Predict: model JSON → flat line + band.
+ * Holds champion model per (tenant, merchant, category). Does not write to store; caller uses ForecastWriteService.
+ */
 @Service
 public class MovingAverageForecastService {
 
     private static final Logger log = LoggerFactory.getLogger(MovingAverageForecastService.class);
-    private static final int MIN_POINTS_QUALITY_GATE = 7;
+    /** Minimum data points for baseline; use config so demo can work with 1 day (default 1). */
 
     private final S3FeatureStoreRepository s3;
     private final ObjectMapper objectMapper;
@@ -34,7 +38,9 @@ public class MovingAverageForecastService {
         this.config = config;
     }
 
-    /** Full baseline path: train → quality gate → save champion → predict. */
+    /**
+     * Run full baseline path: train → quality gate → save champion → predict. Returns points or empty list.
+     */
     public List<ForecastPoint> runFor(String tenantId, String merchantId, String categoryId, int horizonDays) {
         if (horizonDays <= 0) horizonDays = config.getHorizonDaysDefault();
 
@@ -66,7 +72,7 @@ public class MovingAverageForecastService {
         }
     }
 
-    /** Baseline quality gate: require at least MIN_POINTS_QUALITY_GATE data points. */
+    /** Baseline quality gate: require at least config.minPointsForBaseline data points (demo default 1). */
     public boolean passesQualityGate(String modelJson) {
         if (modelJson == null) return false;
         try {
@@ -75,7 +81,8 @@ public class MovingAverageForecastService {
             if (features == null) return false;
             JsonNode pointsNode = features.get("points");
             int points = pointsNode != null && pointsNode.isNumber() ? pointsNode.asInt() : 0;
-            return points >= MIN_POINTS_QUALITY_GATE;
+            int minRequired = config.getMinPointsForBaseline() > 0 ? config.getMinPointsForBaseline() : 1;
+            return points >= minRequired;
         } catch (Exception e) {
             return false;
         }

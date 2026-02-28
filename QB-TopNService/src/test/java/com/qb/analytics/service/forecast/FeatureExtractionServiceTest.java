@@ -11,7 +11,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Basic tests: getHistoryJson from S3; buildAndStoreFeatures stores history. */
+/**
+ * Basic tests: getHistoryJson returns from S3 when present; buildAndStoreFeatures stores history.
+ */
 class FeatureExtractionServiceTest {
 
     private CassandraServingRepository cassandra;

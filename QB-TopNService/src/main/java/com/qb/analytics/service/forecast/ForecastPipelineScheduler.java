@@ -6,7 +6,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Optional scheduler: when demo.forecast.scheduleEnabled=true, runs pipeline for all tenants on a delay. */
+/**
+ * Optional scheduler for the forecast pipeline. When enabled, runs the pipeline on a fixed delay
+ * for all tenants that have aggregate data. POST /api/v1/forecast/run remains for on-demand runs (single tenant).
+ *
+ * Enable with: demo.forecast.scheduleEnabled=true
+ */
 @Component
 @ConditionalOnProperty(name = "demo.forecast.scheduleEnabled", havingValue = "true")
 public class ForecastPipelineScheduler {

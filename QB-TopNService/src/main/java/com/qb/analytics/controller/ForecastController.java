@@ -11,7 +11,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** Run pipeline and fetch forecast. */
+/**
+ * ForecastController:
+ * - run pipeline (demo)
+ * - fetch forecast
+ */
 @RestController
 @RequestMapping("/api/v1/forecast")
 public class ForecastController {
@@ -35,9 +39,9 @@ public class ForecastController {
     }
 
     @GetMapping
-    public ResponseEntity<ForecastResponse> get(@RequestParam String merchantId,
-                                                @RequestParam String categoryId,
-                                                @RequestParam(defaultValue = "7") int horizonDays) {
+    public ResponseEntity<ForecastResponse> get(@RequestParam("merchantId") String merchantId,
+                                                @RequestParam("categoryId") String categoryId,
+                                                @RequestParam(value = "horizonDays", defaultValue = "7") int horizonDays) {
         String tenantId = TenantContext.getTenantId();
         log.info("Forecast get request tenantId={} merchantId={} categoryId={} horizonDays={}", tenantId, merchantId, categoryId, horizonDays);
         ForecastResponse resp = forecastService.getForecast(tenantId, merchantId, categoryId, horizonDays);

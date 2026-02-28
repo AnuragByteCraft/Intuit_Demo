@@ -12,7 +12,11 @@ import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.TimeUnit;
 
-/** Background consumer: writes events to ledger with idempotent upsert. */
+/**
+ * TransactionWriterService:
+ * - background consumer of events
+ * - writes to PostgreSQL ledger with DB-level idempotency (upsert/ignore)
+ */
 @Service
 public class TransactionWriterService {
 

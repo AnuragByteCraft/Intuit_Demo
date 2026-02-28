@@ -16,7 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/** Runs local Prophet Python script: stdin = request JSON, stdout = forecast points JSON. */
+/**
+ * Runs the local Prophet Python script: writes history JSON to stdin, reads forecast points JSON from stdout.
+ * Prophet path only; no business logic beyond process execution and parsing.
+ */
 @Component
 public class ProphetScriptRunner {
 
@@ -35,7 +38,9 @@ public class ProphetScriptRunner {
         this.objectMapper = objectMapper;
     }
 
-    /** Run script with request JSON (history + horizonDays); returns points or empty list on failure. */
+    /**
+     * Run the script with given request JSON (must contain "history" array and "horizonDays"). Returns parsed forecast points or empty list on failure.
+     */
     public List<ForecastPoint> predict(String requestJson) {
         if (requestJson == null || requestJson.isBlank()) return List.of();
 

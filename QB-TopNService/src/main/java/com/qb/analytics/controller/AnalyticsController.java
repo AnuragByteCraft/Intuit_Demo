@@ -8,7 +8,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/** Dashboard reads for Top-N; delegates to QueryService. */
+/**
+ * AnalyticsController:
+ * Dashboard reads for Top-N; read path is delegated to QueryService.
+ */
 @RestController
 @RequestMapping("/api/v1/analytics")
 public class AnalyticsController {
@@ -21,14 +24,14 @@ public class AnalyticsController {
     }
 
     @GetMapping("/topn")
-    public ResponseEntity<TopNResponse> topN(@RequestParam String merchantId,
-                                            @RequestParam(defaultValue = "WEEKLY") String timeframe,
-                                            @RequestParam(defaultValue = "REVENUE") String metric,
-                                            @RequestParam(defaultValue = "10") int n,
-                                            @RequestParam(required = false) String start,
-                                            @RequestParam(required = false) String end,
-                                            @RequestParam(required = false) String startDate,
-                                            @RequestParam(required = false) String endDate) {
+    public ResponseEntity<TopNResponse> topN(@RequestParam("merchantId") String merchantId,
+                                            @RequestParam(value = "timeframe", defaultValue = "WEEKLY") String timeframe,
+                                            @RequestParam(value = "metric", defaultValue = "REVENUE") String metric,
+                                            @RequestParam(value = "n", defaultValue = "10") int n,
+                                            @RequestParam(value = "start", required = false) String start,
+                                            @RequestParam(value = "end", required = false) String end,
+                                            @RequestParam(value = "startDate", required = false) String startDate,
+                                            @RequestParam(value = "endDate", required = false) String endDate) {
         if (start == null && startDate != null) start = startDate;
         if (end == null && endDate != null) end = endDate;
         String tenantId = TenantContext.getTenantId();

@@ -5,7 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-/** Read path for Top-N: materialized or custom range; delegates to AggregationService. */
+/**
+ * QueryService: dedicated read path for Top-N.
+ * Chooses materialized (cache/Cassandra) vs custom range; delegates to AggregationService.
+ */
 @Service
 public class QueryService {
 

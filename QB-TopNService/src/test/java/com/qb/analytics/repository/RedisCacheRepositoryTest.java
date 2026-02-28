@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Basic tests: putIfAbsent, get, TTL. */
+/**
+ * Basic tests for Redis cache simulation: putIfAbsent, get, TTL.
+ */
 class RedisCacheRepositoryTest {
 
     private final RedisCacheRepository redis = new RedisCacheRepository();

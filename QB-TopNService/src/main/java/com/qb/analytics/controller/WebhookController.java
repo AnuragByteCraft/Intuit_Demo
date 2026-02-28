@@ -1,9 +1,11 @@
 package com.qb.analytics.controller;
 
 import com.qb.analytics.infra.TenantContext;
+import com.qb.analytics.model.IngestResult;
 import com.qb.analytics.model.TransactionEvent;
 import com.qb.analytics.service.IngestionService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,7 +15,10 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Entry point for merchant platforms (Shopify/POS) to send transactions. */
+/**
+ * WebhookController:
+ * Entry point for merchant platforms (Shopify/POS) to send transactions.
+ */
 @RestController
 @RequestMapping("/api/v1/webhooks")
 public class WebhookController {
@@ -26,16 +31,26 @@ public class WebhookController {
     }
 
     @PostMapping("/transactions")
-    public ResponseEntity<Map<String, Object>> ingest(@Valid @RequestBody TransactionEvent event) {
+    public ResponseEntity<?> ingest(@RequestHeader(value = "X-Merchant-Id", required = false) String merchantIdHeader,
+                                    @Valid @RequestBody TransactionEvent event) {
         String tenantId = TenantContext.getTenantId();
-        log.info("Webhook received transaction tenantId={} transactionId={} merchantId={} categoryId={} amount={}",
-                tenantId, event.getTransactionId(), event.getMerchantId(), event.getCategoryId(), event.getAmount());
-        String requestId = ingestionService.ingest(tenantId, event);
+        if (merchantIdHeader == null || merchantIdHeader.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Missing required header: X-Merchant-Id"));
+        }
+        event.setMerchantId(merchantIdHeader.trim());
+        log.info("Webhook received transaction tenantId={} merchantId={} transactionId={} categoryId={} amount={}",
+                tenantId, event.getMerchantId(), event.getTransactionId(), event.getCategoryId(), event.getAmount());
+        var result = ingestionService.ingest(tenantId, event);
 
         Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "ACCEPTED");
-        resp.put("requestId", requestId);
-        log.info("Webhook accepted transactionId={} requestId={}", event.getTransactionId(), requestId);
+        resp.put("status", result.getStatus());
+        resp.put("requestId", result.getRequestId());
+        if (IngestResult.STATUS_ALREADY_PROCESSED.equals(result.getStatus())) {
+            log.info("Webhook duplicate transactionId={} requestId={} status=ALREADY_PROCESSED", event.getTransactionId(), result.getRequestId());
+            return ResponseEntity.ok(resp);
+        }
+        log.info("Webhook accepted transactionId={} requestId={}", event.getTransactionId(), result.getRequestId());
         return ResponseEntity.accepted().body(resp);
     }
 }
