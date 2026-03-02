@@ -4,7 +4,7 @@ public class AggregateRecord {
     private String tenantId;
     private String merchantId;
     private String categoryId;
-    private String day; // yyyy-MM-dd
+    private String day;
     private double revenue;
     private long units;
 

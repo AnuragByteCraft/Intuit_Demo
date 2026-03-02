@@ -4,9 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Basic tests: default values and setters.
- */
 class ForecastConfigTest {
 
     @Test
@@ -14,7 +11,7 @@ class ForecastConfigTest {
         ForecastConfig config = new ForecastConfig();
         assertThat(config.getHistoryDays()).isEqualTo(90);
         assertThat(config.getHorizonDaysDefault()).isEqualTo(7);
-        assertThat(config.getMinHistoryDaysForProphet()).isEqualTo(28);
+        assertThat(config.getMinHistoryDaysForProphet()).isEqualTo(90);
     }
 
     @Test

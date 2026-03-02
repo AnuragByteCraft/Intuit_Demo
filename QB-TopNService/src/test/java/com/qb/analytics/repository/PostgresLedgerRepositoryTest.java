@@ -7,9 +7,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Basic tests for ledger: idempotent upsert, snapshot is a copy.
- */
 class PostgresLedgerRepositoryTest {
 
     private final PostgresLedgerRepository postgres = new PostgresLedgerRepository();

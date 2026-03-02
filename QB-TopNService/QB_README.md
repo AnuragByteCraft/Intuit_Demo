@@ -58,7 +58,7 @@ QB-TopNService/
 
 ## How to test
 
-Use a terminal with the app running on `http://localhost:8080`. **Ingest:** send **`X-Tenant-Id`** and **`X-Merchant-Id`** in headers; body has `transactionId`, `categoryId`, `amount`, `eventTime` (no merchantId in body). **Other APIs:** send **`X-Tenant-Id`**; Top-N and Forecast also use query param `merchantId`.
+Use a terminal with the app running on `http://localhost:8080`. **Ingest:** send **`X-Tenant-Id`** and **`X-Merchant-Id`** in headers; body has `transactionId`, `categoryId`, `amount`, `eventTime` (no merchantId in body). Optional: `quantity` (default 1, enables Top-N by UNITS), `currency` (default USD). **Other APIs:** send **`X-Tenant-Id`**; Top-N and Forecast also use query param `merchantId`.
 
 **Quick reference:**
 
@@ -93,7 +93,7 @@ curl -s http://localhost:8080/actuator/health
 
 **Important:** The API accepts **one transaction per HTTP request**. Do not put multiple JSON objects in one body (e.g. `{"t1":...}&{"t2":...}`) — the server will only parse the first and the rest are ignored. Send **4 separate requests** (4 curls or 4 Postman requests).
 
-Tenant/merchant from **headers** (`X-Tenant-Id`, `X-Merchant-Id`). Body: `transactionId`, `categoryId`, `amount`, `eventTime`. All events use **2026-03-03** so they fall in the current week on demo day (March 3rd 2026).
+Tenant/merchant from **headers** (`X-Tenant-Id`, `X-Merchant-Id`). Body: `transactionId`, `categoryId`, `amount`, `eventTime`. Optional: `quantity` (default 1), `currency` (default USD). All events use **2026-03-03** so they fall in the current week on demo day (March 3rd 2026).
 
 **Option A — one line (runs 4 separate curls):**
 ```bash

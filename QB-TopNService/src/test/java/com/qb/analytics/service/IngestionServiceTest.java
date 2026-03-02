@@ -9,9 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * IngestionService: first ingest returns ACCEPTED and publishes to bus; duplicate returns ALREADY_PROCESSED with same requestId.
- */
 class IngestionServiceTest {
 
     private InMemoryEventBus bus;
@@ -33,7 +30,6 @@ class IngestionServiceTest {
         assertThat(result.getStatus()).isEqualTo(IngestResult.STATUS_ACCEPTED);
         assertThat(result.getRequestId()).isNotBlank();
 
-        // Event was published: poll should return it
         InMemoryEventBus.Envelope envelope = bus.poll();
         assertThat(envelope).isNotNull();
         assertThat(envelope.tenantId).isEqualTo("shopify");

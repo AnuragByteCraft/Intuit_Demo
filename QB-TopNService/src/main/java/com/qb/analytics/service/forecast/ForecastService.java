@@ -13,9 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Serves forecast reads: cache first, then Cassandra.
- */
 @Service
 public class ForecastService {
 
@@ -43,7 +40,9 @@ public class ForecastService {
         String cached = redis.get(key);
         if (cached != null) {
             try {
-                ForecastResponse resp = objectMapper.readValue(cached, ForecastResponse.class);
+                ForecastResponse parsed = objectMapper.readValue(cached, ForecastResponse.class);
+                ForecastResponse resp = ForecastResponse.of(tenantId, merchantId, categoryId, h,
+                        parsed.getPoints(), parsed.getModelUsed());
                 log.info("ForecastService cache hit tenantId={} merchantId={} categoryId={}", tenantId, merchantId, categoryId);
                 return resp;
             } catch (JsonProcessingException e) {

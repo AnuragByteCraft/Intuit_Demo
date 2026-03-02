@@ -2,17 +2,12 @@ package com.qb.analytics.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Shared forecast configuration. Injected into forecast services to avoid duplicate @Value.
- * Registered via @EnableConfigurationProperties(ForecastConfig.class) in MainApplication.
- */
 @ConfigurationProperties(prefix = "demo.forecast")
 public class ForecastConfig {
 
     private int historyDays = 90;
     private int horizonDaysDefault = 7;
-    private int minHistoryDaysForProphet = 28;
-    /** Minimum daily data points required for moving-average baseline (demo: 1 so one day of data yields a forecast). */
+    private int minHistoryDaysForProphet = 90;
     private int minPointsForBaseline = 1;
 
     public int getHistoryDays() {

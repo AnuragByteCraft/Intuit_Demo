@@ -149,6 +149,7 @@
     font-size: 0.875rem;
   }
   .small { min-width: 120px; }
+  input[type="number"] { min-width: 80px; }
 </style>
 </head>
 
@@ -158,16 +159,32 @@
     <h1>QB Commerce</h1>
     <p class="sub">Merchant Dashboard</p>
   </header>
+  <!-- ================= LOAD DEMO DATA ================= -->
+  <div class="card">
+    <h2>1. Load Demo Data</h2>
+    <p class="note">Ingest sample transactions so Top-N and Forecast have data. Run this first, then wait ~15 seconds before Top-N / Forecast.</p>
+    <div class="row">
+      <button class="btn-premium" onclick="loadDemoData()">Load Demo Data (Shopify + Amazon)</button>
+    </div>
+    <div id="demoMsg"></div>
+  </div>
+
   <!-- ================= TOP-N ================= -->
   <div class="card">
-    <h2>Top-N Categories</h2>
+    <h2>2. Top-N Categories</h2>
 
     <div class="row">
-      <input id="tenantTopn" placeholder="Tenant ID" value="Shopify" />
-      <input id="merchantTopn" placeholder="Merchant ID" value="Bose" />
+      <select id="tenantTopn" class="small" title="Tenant">
+        <option value="shopify" selected>Shopify</option>
+        <option value="amazon">Amazon</option>
+        <option value="POS">POS</option>
+      </select>
+
+      <select id="merchantTopn" class="small" title="Merchant">
+        <option value="store1" selected>store1</option>
+      </select>
 
       <select id="timeframe" class="small">
-        <option value="NA">NA</option>
         <option>DAILY</option>
         <option selected>WEEKLY</option>
         <option>MONTHLY</option>
@@ -176,17 +193,11 @@
       </select>
 
       <select id="metric" class="small">
-        <option value="NA">NA</option>
         <option selected>REVENUE</option>
         <option>UNITS</option>
       </select>
 
-      <select id="topN" class="small">
-        <option value="NA">NA</option>
-        <option>5</option>
-        <option selected>10</option>
-        <option>15</option>
-      </select>
+      <input id="topN" type="number" min="1" max="50" value="5" placeholder="Top N" class="small" title="Enter number (1-50)" />
 
       <button onclick="getTopN()">Get Top-N</button>
     </div>
@@ -203,31 +214,28 @@
 
   <!-- ================= FORECAST ================= -->
   <div class="card">
-    <h2>Forecast</h2>
+    <h2>3. Forecast</h2>
 
     <div class="row">
-      <input id="tenantFc" placeholder="Tenant ID" value="Shopify" />
-      <input id="merchantFc" placeholder="Merchant ID" value="Bose" />
-
-      <!-- Category + Subcategory -->
-      <select id="categorySelect">
-        <option value="NA">NA</option>
-        <option value="Electronics" selected>Electronics</option>
-        <option value="Pharmacy">Pharmacy</option>
-        <option value="FMCG">FMCG</option>
-        <option value="Automotive">Automotive</option>
+      <select id="tenantFc" class="small" title="Tenant">
+        <option value="shopify" selected>Shopify</option>
+        <option value="amazon">Amazon</option>
+        <option value="POS">POS</option>
       </select>
 
-      <select id="subCategorySelect">
-        <option value="NA">NA</option>
-        <option value="Laptop" selected>Laptop</option>
-        <option value="Mobile">Mobile</option>
-        <option value="Headphones">Headphones</option>
-        <option value="TV">TV</option>
+      <select id="merchantFc" class="small" title="Merchant">
+        <option value="store1" selected>store1</option>
+      </select>
+
+      <select id="categorySelect" title="Category">
+        <option value="electronics" selected>electronics</option>
+        <option value="clothing">clothing</option>
+        <option value="home-garden">home-garden</option>
+        <option value="sports">sports</option>
+        <option value="books">books</option>
       </select>
 
       <select id="horizon" class="small">
-        <option value="NA">NA</option>
         <option value="7" selected>7 Days</option>
         <option value="14">14 Days</option>
         <option value="30">30 Days</option>
@@ -235,13 +243,13 @@
     </div>
 
     <div class="row">
+      <button onclick="runForecast()">Run Forecast</button>
+      <span class="or">then</span>
       <button onclick="getForecast()">Get Forecast</button>
-      <span class="or">OR</span>
-      <button class="btn-premium" onclick="runForecast()">⭐ Run Forecast (Premium)</button>
     </div>
 
     <div class="note">
-      Get Forecast = fast read of latest saved predictions. Premium Run Forecast = triggers batch recompute.
+      Run Forecast triggers pipeline (Moving Avg for &lt;90 days, Prophet for ≥90 days). Get Forecast fetches the result.
     </div>
 
     <div id="forecastMsg"></div>
@@ -250,38 +258,32 @@
 </div>
 
 <script>
-  // Fixed base URL for demo
   const BASE_URL = "http://localhost:8080";
 
-  // Category -> Subcategory mapping (UI-level)
-  // We'll send categoryId as "Category/SubCategory" by default.
-  const CATEGORY_MAP = {
-    "NA": ["NA"],
-    "Electronics": ["NA", "Laptop", "Mobile", "Headphones", "TV"],
-    "Pharmacy": ["NA", "OTC", "Prescription", "Wellness", "Supplements"],
-    "FMCG": ["NA", "Snacks", "Beverages", "PersonalCare", "HomeCare"],
-    "Automotive": ["NA", "Tyres", "Batteries", "Accessories", "EngineOil"]
+  // Tenant -> Merchant mapping (extend as needed)
+  const TENANT_MERCHANTS = {
+    shopify: ["store1"],
+    amazon: ["seller1"],
+    POS: ["pos-store1", "pos-store2"]
   };
 
-  // ----------- Wiring category dropdown -----------
-  function initCategoryDropdowns(){
-    const cat = document.getElementById("categorySelect");
-    const sub = document.getElementById("subCategorySelect");
+  function updateMerchantOptions(tenantSelectId, merchantSelectId) {
+    const tenantSelect = document.getElementById(tenantSelectId);
+    const merchantSelect = document.getElementById(merchantSelectId);
+    const tenant = tenantSelect.value;
+    const merchants = TENANT_MERCHANTS[tenant] || ["store1"];
+    merchantSelect.innerHTML = merchants.map(m => `<option value="${m}">${m}</option>`).join("");
+  }
 
-    function refillSub(){
-      const list = CATEGORY_MAP[cat.value] || ["NA"];
-      sub.innerHTML = "";
-      list.forEach((x, idx) => {
-        const opt = document.createElement("option");
-        opt.value = x;
-        opt.textContent = x;
-        if (idx === 0) opt.selected = true;
-        sub.appendChild(opt);
+  function initTenantMerchantSync() {
+    ["tenantTopn", "tenantFc"].forEach(tenantId => {
+      document.getElementById(tenantId).addEventListener("change", () => {
+        const pair = tenantId === "tenantTopn" ? ["tenantTopn", "merchantTopn"] : ["tenantFc", "merchantFc"];
+        updateMerchantOptions(pair[0], pair[1]);
       });
-    }
-
-    cat.addEventListener("change", refillSub);
-    refillSub();
+    });
+    updateMerchantOptions("tenantTopn", "merchantTopn");
+    updateMerchantOptions("tenantFc", "merchantFc");
   }
 
   // ----------- Custom date show/hide + default dates -----------
@@ -328,9 +330,47 @@
   function normalizeArray(payload){
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.items)) return payload.items;
+    if (payload && Array.isArray(payload.points)) return payload.points;
     if (payload && Array.isArray(payload.data)) return payload.data;
     if (payload && Array.isArray(payload.results)) return payload.results;
     return [];
+  }
+
+  // ================= LOAD DEMO DATA =================
+  async function loadDemoData(){
+    showMsg("demoMsg","","");
+    const demoMsg = document.getElementById("demoMsg");
+    try {
+      demoMsg.innerHTML = '<div class="ok">Ingesting Shopify (8 txns)...</div>';
+      const SHOPIFY_TXNS = [
+        {transactionId:"txn-1",categoryId:"electronics",amount:2000.0,eventTime:"2026-03-03T09:00:00Z"},
+        {transactionId:"txn-2",categoryId:"electronics",amount:1500.0,eventTime:"2026-03-03T10:30:00Z"},
+        {transactionId:"txn-3",categoryId:"electronics",amount:500.0,quantity:4,eventTime:"2026-03-03T14:00:00Z"},
+        {transactionId:"txn-4",categoryId:"clothing",amount:1200.0,eventTime:"2026-03-03T11:00:00Z"},
+        {transactionId:"txn-5",categoryId:"clothing",amount:800.0,eventTime:"2026-03-02T15:00:00Z"},
+        {transactionId:"txn-6",categoryId:"home-garden",amount:950.0,eventTime:"2026-03-02T12:00:00Z"},
+        {transactionId:"txn-7",categoryId:"sports",amount:600.0,eventTime:"2026-03-02T09:00:00Z"},
+        {transactionId:"txn-8",categoryId:"books",amount:250.0,quantity:2,eventTime:"2026-03-03T16:00:00Z"}
+      ];
+      for (const t of SHOPIFY_TXNS) {
+        await fetch(`${BASE_URL}/api/v1/webhooks/transactions`, {
+          method: "POST", headers: {"Content-Type":"application/json","X-Tenant-Id":"shopify","X-Merchant-Id":"store1"},
+          body: JSON.stringify(t)
+        });
+      }
+      demoMsg.innerHTML = '<div class="ok">Shopify done. Ingesting Amazon (90 txns)...</div>';
+      for (let i = 0; i < 90; i++) {
+        const d = new Date(2025,11,4); d.setDate(d.getDate() + i);
+        const amt = 30 + (i % 50);
+        await fetch(`${BASE_URL}/api/v1/webhooks/transactions`, {
+          method: "POST", headers: {"Content-Type":"application/json","X-Tenant-Id":"amazon","X-Merchant-Id":"seller1"},
+          body: JSON.stringify({transactionId:`amz-books-${i}`,categoryId:"books",amount:amt,eventTime:d.toISOString().slice(0,10)+"T12:00:00Z"})
+        });
+      }
+      demoMsg.innerHTML = '<div class="ok">Demo data loaded (98 txns). Wait ~15 seconds for aggregation, then use Top-N and Forecast.</div>';
+    } catch (e) {
+      demoMsg.innerHTML = `<div class="error">Failed: ${esc(e.message)}. Is the app running at ${BASE_URL}?</div>`;
+    }
   }
 
   // ================= TOP N =================
@@ -338,18 +378,18 @@
     showMsg("topnMsg","", "");
     document.getElementById("topnResult").innerHTML = "";
 
-    const tenant = document.getElementById("tenantTopn").value.trim();
-    const merchant = document.getElementById("merchantTopn").value.trim();
+    const tenant = document.getElementById("tenantTopn").value;
+    const merchant = document.getElementById("merchantTopn").value;
     const timeframe = document.getElementById("timeframe").value;
     const metric = document.getElementById("metric").value;
-    const n = document.getElementById("topN").value;
+    let n = parseInt(document.getElementById("topN").value, 10);
+    if (isNaN(n) || n < 1) n = 5;
+    if (n > 50) n = 50;
 
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
 
-    // Adjust param names here if your API differs
     const params = new URLSearchParams({
-      tenantId: tenant,
       merchantId: merchant,
       timeframe: timeframe,
       metric: metric,
@@ -368,7 +408,7 @@
     const url = `${BASE_URL}/api/v1/analytics/topn?${params.toString()}`;
 
     try{
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { "X-Tenant-Id": tenant || "shopify" } });
       const text = await res.text();
       let json = null;
       try { json = text ? JSON.parse(text) : null; } catch { json = null; }
@@ -399,29 +439,20 @@
 
   // ================= FORECAST =================
   function getSelectedCategoryId(){
-    const cat = document.getElementById("categorySelect").value;
-    const sub = document.getElementById("subCategorySelect").value;
-    // Default: send a combined category identifier (you can change to IDs if your API expects numeric ids)
-    return `${cat}/${sub}`;
+    return document.getElementById("categorySelect").value;
   }
 
   async function runForecast(){
     showMsg("forecastMsg","", "");
     document.getElementById("forecastResult").innerHTML = "";
 
-    const tenant = document.getElementById("tenantFc").value.trim();
-    const merchant = document.getElementById("merchantFc").value.trim();
-    const categoryId = getSelectedCategoryId();
-    const horizonDays = Number(document.getElementById("horizon").value);
-
-    // Adjust body keys here if your API differs
-    const body = { tenantId: tenant, merchantId: merchant, categoryId: categoryId, horizonDays: horizonDays };
+    const tenant = document.getElementById("tenantFc").value.trim() || "shopify";
 
     try{
       const res = await fetch(`${BASE_URL}/api/v1/forecast/run`,{
         method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body)
+        headers:{ "Content-Type":"application/json", "X-Tenant-Id": tenant },
+        body: JSON.stringify({})
       });
 
       if (!res.ok){
@@ -429,9 +460,9 @@
         return;
       }
 
-      showMsg("forecastMsg","ok","Premium forecast triggered ✅ Now click Get Forecast to load predictions.");
+      showMsg("forecastMsg","ok","Forecast pipeline triggered ✅ Click Get Forecast to load predictions.");
     }catch(e){
-      showMsg("forecastMsg","error","Network error while calling Run Forecast. Check service/CORS.");
+      showMsg("forecastMsg","error","Network error. Is the app running at " + BASE_URL + "?");
     }
   }
 
@@ -439,14 +470,12 @@
     showMsg("forecastMsg","", "");
     document.getElementById("forecastResult").innerHTML = "";
 
-    const tenant = document.getElementById("tenantFc").value.trim();
-    const merchant = document.getElementById("merchantFc").value.trim();
+    const tenant = document.getElementById("tenantFc").value.trim() || "shopify";
+    const merchant = document.getElementById("merchantFc").value.trim() || "store1";
     const categoryId = getSelectedCategoryId();
-    const horizonDays = document.getElementById("horizon").value;
+    const horizonDays = document.getElementById("horizon").value || "7";
 
-    // Adjust param names here if your API differs
     const params = new URLSearchParams({
-      tenantId: tenant,
       merchantId: merchant,
       categoryId: categoryId,
       horizonDays: horizonDays
@@ -455,7 +484,7 @@
     const url = `${BASE_URL}/api/v1/forecast?${params.toString()}`;
 
     try{
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { "X-Tenant-Id": tenant } });
       const text = await res.text();
       let json = null;
       try { json = text ? JSON.parse(text) : null; } catch { json = null; }
@@ -467,24 +496,26 @@
 
       const points = normalizeArray(json);
       if (!points.length){
-        showMsg("forecastMsg","ok","No forecast points returned yet. If you just ran Premium forecast, try again in a few seconds.");
+        showMsg("forecastMsg","ok","No forecast yet. Run Forecast first, wait a few seconds, then try Get Forecast again.");
         return;
       }
 
-      // Normalize fields: date + predicted + optional low/high
+      const modelUsed = json && json.modelUsed ? ` (${json.modelUsed})` : "";
+      showMsg("forecastMsg","ok",`Forecast loaded${modelUsed}`);
+
       const rows = points.map(p => ({
         date: p.date ?? p.ds ?? p.day ?? "",
-        predicted: p.predicted ?? p.yhat ?? p.value ?? "",
-        low: p.low ?? p.yhatLower ?? p.lower ?? "",
-        high: p.high ?? p.yhatUpper ?? p.upper ?? ""
+        predicted: p.predicted ?? p.predictedSales ?? p.yhat ?? p.value ?? "",
+        low: p.low ?? p.confidenceLow ?? p.yhatLower ?? p.lower ?? "",
+        high: p.high ?? p.confidenceHigh ?? p.yhatUpper ?? p.upper ?? ""
       }));
 
-      const hasBand = rows.some(r => String(r.low).trim() || String(r.high).trim());
+      const hasBand = rows.some(r => String(r.low).trim() !== "" || String(r.high).trim() !== "");
       if (hasBand) renderTable("forecastResult", ["date","predicted","low","high"], rows);
       else renderTable("forecastResult", ["date","predicted"], rows);
 
     }catch(e){
-      showMsg("forecastMsg","error","Network error while calling Get Forecast API. Check service/CORS.");
+      showMsg("forecastMsg","error","Network error. Check app running and CORS at " + BASE_URL);
     }
   }
 
@@ -507,7 +538,7 @@
   }
 
   // Init
-  initCategoryDropdowns();
+  initTenantMerchantSync();
   initTimeframe();
 </script>
 </body>

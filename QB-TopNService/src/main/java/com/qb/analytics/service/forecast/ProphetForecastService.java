@@ -11,10 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Prophet forecast path only: get history JSON, build request, call ProphetScriptRunner, return points.
- * Does not write to store; caller uses ForecastWriteService.
- */
 @Service
 public class ProphetForecastService {
 
@@ -35,9 +31,6 @@ public class ProphetForecastService {
         this.config = config;
     }
 
-    /**
-     * Run Prophet path: build request JSON (history + horizonDays), call script, return forecast points or empty list.
-     */
     public List<ForecastPoint> predict(String tenantId, String merchantId, String categoryId, int horizonDays) {
         if (horizonDays <= 0) horizonDays = config.getHorizonDaysDefault();
 

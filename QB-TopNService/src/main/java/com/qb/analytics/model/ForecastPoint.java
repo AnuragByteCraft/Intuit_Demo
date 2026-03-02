@@ -1,7 +1,7 @@
 package com.qb.analytics.model;
 
 public class ForecastPoint {
-    private String date; // yyyy-MM-dd
+    private String date;
     private double predictedSales;
     private double confidenceLow;
     private double confidenceHigh;

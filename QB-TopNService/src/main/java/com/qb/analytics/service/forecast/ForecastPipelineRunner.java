@@ -13,10 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Orchestrator only: select targets, build features, then either Moving Average or Prophet path, then write via ForecastWriteService.
- * No prediction logic here; clear separation: MovingAverageForecastService vs ProphetForecastService.
- */
 @Service
 public class ForecastPipelineRunner {
 
@@ -43,9 +39,6 @@ public class ForecastPipelineRunner {
         this.config = config;
     }
 
-    /**
-     * Run forecast pipeline for all tenants that have aggregate data. Used by the scheduled job.
-     */
     public void runForAllTenants() {
         Set<String> tenantIds = cassandra.listTenantIds();
         log.info("ForecastPipeline scheduled run for all tenants count={}", tenantIds.size());
@@ -67,20 +60,25 @@ public class ForecastPipelineRunner {
 
                 int pointsCount = featureExtraction.getPointsCountFromStoredFeatures(tenantId, merchantId, categoryId);
                 List<ForecastPoint> points;
+                boolean useProphet = pointsCount >= config.getMinHistoryDaysForProphet();
 
-                if (pointsCount < config.getMinHistoryDaysForProphet()) {
+                if (useProphet) {
+                    points = prophetForecastService.predict(tenantId, merchantId, categoryId, config.getHorizonDaysDefault());
+                    if (!points.isEmpty()) {
+                        forecastWriteService.write(tenantId, merchantId, categoryId, config.getHorizonDaysDefault(), points, ForecastResponse.MODEL_USED_PROPHET);
+                    } else {
+                        log.info("ForecastPipeline Prophet produced no points, falling back to baseline merchantId={} categoryId={}", merchantId, categoryId);
+                        points = movingAverageForecastService.runFor(tenantId, merchantId, categoryId, config.getHorizonDaysDefault());
+                        if (!points.isEmpty()) {
+                            forecastWriteService.write(tenantId, merchantId, categoryId, config.getHorizonDaysDefault(), points);
+                        }
+                    }
+                } else {
                     points = movingAverageForecastService.runFor(tenantId, merchantId, categoryId, config.getHorizonDaysDefault());
                     if (!points.isEmpty()) {
                         forecastWriteService.write(tenantId, merchantId, categoryId, config.getHorizonDaysDefault(), points);
                     } else {
                         log.info("ForecastPipeline baseline produced no points (quality gate?) merchantId={} categoryId={}", merchantId, categoryId);
-                    }
-                } else {
-                    points = prophetForecastService.predict(tenantId, merchantId, categoryId, config.getHorizonDaysDefault());
-                    if (!points.isEmpty()) {
-                        forecastWriteService.write(tenantId, merchantId, categoryId, config.getHorizonDaysDefault(), points, ForecastResponse.MODEL_USED_PROPHET);
-                    } else {
-                        log.info("ForecastPipeline Prophet produced no points merchantId={} categoryId={}", merchantId, categoryId);
                     }
                 }
                 log.info("ForecastPipeline completed merchantId={} categoryId={}", merchantId, categoryId);

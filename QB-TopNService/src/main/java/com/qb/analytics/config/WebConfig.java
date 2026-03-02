@@ -8,9 +8,6 @@ import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
-/**
- * Enables CORS so the merchant dashboard UI (e.g. opened from file or another origin) can call the API.
- */
 @Configuration
 public class WebConfig {
 

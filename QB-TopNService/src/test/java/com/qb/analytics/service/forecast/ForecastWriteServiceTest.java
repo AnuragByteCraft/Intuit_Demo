@@ -11,9 +11,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Basic tests: cache key format, write persists to store and cache.
- */
 class ForecastWriteServiceTest {
 
     private CassandraServingRepository cassandra;

@@ -7,9 +7,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 
-/**
- * Maps exceptions to HTTP responses. E.g. invalid custom range (Top-N) → 400.
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

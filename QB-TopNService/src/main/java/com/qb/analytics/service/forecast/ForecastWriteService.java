@@ -10,19 +10,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * Shared write path: persist forecast points to Cassandra and cache (Redis).
- * Used by both Moving Average and Prophet paths. Cache key format is here so read path (ForecastService) matches.
- */
 @Service
 public class ForecastWriteService {
 
     private static final String CACHE_KEY_PREFIX = "forecast:";
     private static final int CACHE_TTL_SECONDS = 300;
 
-    /** Cache key for forecast (read path must use same format). */
     public static String cacheKey(String tenantId, String merchantId, String categoryId, int horizonDays) {
         return CACHE_KEY_PREFIX + tenantId + ":" + merchantId + ":" + categoryId + ":" + horizonDays;
     }
@@ -41,24 +40,27 @@ public class ForecastWriteService {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Write forecast points to store and cache. Uses MOVING_AVERAGE_BASELINE as modelUsed.
-     */
     public void write(String tenantId, String merchantId, String categoryId, int horizonDays,
                       List<ForecastPoint> points) {
         write(tenantId, merchantId, categoryId, horizonDays, points, ForecastResponse.MODEL_USED_BASELINE);
     }
 
-    /**
-     * Write forecast points to store and cache with given modelUsed (e.g. PROPHET).
-     */
     public void write(String tenantId, String merchantId, String categoryId, int horizonDays,
                       List<ForecastPoint> points, String modelUsed) {
         if (points == null || points.isEmpty()) return;
 
-        cassandra.saveForecast(tenantId, merchantId, categoryId, horizonDays, points);
+        List<ForecastPoint> deduped = points.stream()
+                .filter(p -> p != null && p.getDate() != null)
+                .collect(Collectors.toList());
+        Set<String> seenDates = new LinkedHashSet<>();
+        List<ForecastPoint> unique = new ArrayList<>();
+        for (ForecastPoint p : deduped) {
+            if (seenDates.add(p.getDate())) unique.add(p);
+        }
 
-        ForecastResponse resp = ForecastResponse.of(tenantId, merchantId, categoryId, horizonDays, points, modelUsed);
+        cassandra.saveForecast(tenantId, merchantId, categoryId, horizonDays, unique);
+
+        ForecastResponse resp = ForecastResponse.of(tenantId, merchantId, categoryId, horizonDays, unique, modelUsed);
         try {
             String cacheKey = cacheKey(tenantId, merchantId, categoryId, horizonDays);
             redis.put(cacheKey, objectMapper.writeValueAsString(resp), CACHE_TTL_SECONDS);
@@ -66,6 +68,6 @@ public class ForecastWriteService {
             log.warn("Failed to cache forecast tenantId={} merchantId={} categoryId={}", tenantId, merchantId, categoryId, e);
         }
         log.info("ForecastWriteService saved forecast tenantId={} merchantId={} categoryId={} pointsCount={} modelUsed={}",
-                tenantId, merchantId, categoryId, points.size(), modelUsed);
+                tenantId, merchantId, categoryId, unique.size(), modelUsed);
     }
 }

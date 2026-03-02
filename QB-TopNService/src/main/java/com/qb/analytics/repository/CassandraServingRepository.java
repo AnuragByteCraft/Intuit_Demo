@@ -8,12 +8,6 @@ import org.springframework.stereotype.Repository;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Minimal Cassandra simulation:
- * - daily aggregates (tenant, merchant, day, category) -> AggregateRecord
- * - materialized topN (tenant, merchant, timeframe, bucketStart, metric, n) -> TopNResponse
- * - forecasts (tenant, merchant, category, horizonDays) -> List<ForecastPoint>
- */
 @Repository
 public class CassandraServingRepository {
 
@@ -42,7 +36,6 @@ public class CassandraServingRepository {
         });
     }
 
-    /** Merge a batch of daily aggregate deltas (one write per unique key). Call after worker-side in-memory aggregation. */
     public void batchMergeDailyAggregates(Collection<AggregateRecord> records) {
         for (AggregateRecord r : records) {
             upsertDailyAggregate(r);
@@ -55,7 +48,6 @@ public class CassandraServingRepository {
             if (!tenantId.equals(r.getTenantId())) continue;
             if (!merchantId.equals(r.getMerchantId())) continue;
 
-            // very simple string compare since yyyy-MM-dd
             if (startDayInclusive != null && r.getDay().compareTo(startDayInclusive) < 0) continue;
             if (endDayInclusive != null && r.getDay().compareTo(endDayInclusive) > 0) continue;
 
@@ -99,7 +91,6 @@ public class CassandraServingRepository {
         return cats;
     }
 
-    /** Latest aggregate day (yyyy-MM-dd) for this tenant+merchant, or null if none. Used for demo fallback when current bucket has no data. */
     public String getLatestAggregateDay(String tenantId, String merchantId) {
         String latest = null;
         for (AggregateRecord r : dailyAgg.values()) {
@@ -110,7 +101,6 @@ public class CassandraServingRepository {
         return latest;
     }
 
-    /** All tenant IDs that have at least one daily aggregate (used for scheduled forecast for all tenants). */
     public Set<String> listTenantIds() {
         Set<String> tenants = new HashSet<>();
         for (AggregateRecord r : dailyAgg.values()) {

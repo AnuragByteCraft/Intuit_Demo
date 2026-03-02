@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
@@ -16,10 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Runs the local Prophet Python script: writes history JSON to stdin, reads forecast points JSON from stdout.
- * Prophet path only; no business logic beyond process execution and parsing.
- */
 @Component
 public class ProphetScriptRunner {
 
@@ -38,13 +35,22 @@ public class ProphetScriptRunner {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Run the script with given request JSON (must contain "history" array and "horizonDays"). Returns parsed forecast points or empty list on failure.
-     */
     public List<ForecastPoint> predict(String requestJson) {
         if (requestJson == null || requestJson.isBlank()) return List.of();
 
-        ProcessBuilder pb = new ProcessBuilder(pythonPath, scriptPath);
+        File projectRoot = new File(System.getProperty("user.dir"));
+        File scriptFile = new File(projectRoot, scriptPath);
+        File pythonExe = new File(projectRoot, pythonPath);
+        if (!pythonExe.exists()) {
+            pythonExe = new File(pythonPath);
+        }
+        if (!scriptFile.exists()) {
+            log.warn("ProphetScriptRunner script not found at {}", scriptFile.getAbsolutePath());
+            return List.of();
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(pythonExe.getAbsolutePath(), scriptFile.getAbsolutePath());
+        pb.directory(projectRoot);
         pb.redirectErrorStream(true);
         Process process = null;
         try {
@@ -66,9 +72,15 @@ public class ProphetScriptRunner {
             StringBuilder stdout = new StringBuilder();
             try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = reader.readLine()) != null) stdout.append(line);
+                while ((line = reader.readLine()) != null) {
+                    stdout.append(line).append('\n');
+                }
             }
-            return parsePoints(stdout.toString());
+            String rawOutput = stdout.toString();
+            if (log.isDebugEnabled()) {
+                log.debug("ProphetScriptRunner raw output (first 500 chars): {}", rawOutput.length() > 500 ? rawOutput.substring(0, 500) + "..." : rawOutput);
+            }
+            return parsePoints(rawOutput);
         } catch (Exception e) {
             log.warn("ProphetScriptRunner failed: {}", e.getMessage());
             return List.of();
@@ -79,21 +91,19 @@ public class ProphetScriptRunner {
 
     private List<ForecastPoint> parsePoints(String output) {
         if (output == null || output.isBlank()) return List.of();
-        String json = output.trim();
-        if (json.contains("\n")) {
-            String[] lines = json.split("\n");
-            for (int i = lines.length - 1; i >= 0; i--) {
-                String line = lines[i].trim();
-                if (!line.isEmpty() && line.startsWith("{")) {
-                    json = line;
-                    break;
-                }
-            }
+        String json = extractJsonObject(output);
+        if (json == null) {
+            log.warn("ProphetScriptRunner could not find JSON in output (first 300 chars): {}", 
+                    output.length() > 300 ? output.substring(0, 300) + "..." : output);
+            return List.of();
         }
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode pointsNode = root.get("points");
-            if (pointsNode == null || !pointsNode.isArray()) return List.of();
+            if (pointsNode == null || !pointsNode.isArray()) {
+                log.warn("ProphetScriptRunner output has no 'points' array");
+                return List.of();
+            }
             List<ForecastPoint> points = new ArrayList<>();
             for (JsonNode p : pointsNode) {
                 String date = p.has("date") ? p.get("date").asText() : null;
@@ -102,10 +112,27 @@ public class ProphetScriptRunner {
                 double high = p.has("confidenceHigh") ? p.get("confidenceHigh").asDouble() : pred;
                 if (date != null) points.add(new ForecastPoint(date, pred, low, high));
             }
+            log.info("ProphetScriptRunner parsed {} forecast points from output", points.size());
             return points;
         } catch (Exception e) {
             log.warn("ProphetScriptRunner parse failed: {}", e.getMessage());
             return List.of();
         }
+    }
+
+    private String extractJsonObject(String output) {
+        int idx = output.indexOf("{\"points\":");
+        if (idx < 0) idx = output.indexOf("{");
+        if (idx < 0) return null;
+        int depth = 0;
+        for (int i = idx; i < output.length(); i++) {
+            char c = output.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) return output.substring(idx, i + 1);
+            }
+        }
+        return null;
     }
 }

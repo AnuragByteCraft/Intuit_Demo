@@ -1,8 +1,5 @@
 package com.qb.analytics.model;
 
-/**
- * Result of ingesting a transaction: distinguishes new (accepted) vs duplicate (already processed).
- */
 public class IngestResult {
 
     public static final String STATUS_ACCEPTED = "ACCEPTED";

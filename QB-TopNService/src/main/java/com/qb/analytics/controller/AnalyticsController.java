@@ -8,10 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * AnalyticsController:
- * Dashboard reads for Top-N; read path is delegated to QueryService.
- */
 @RestController
 @RequestMapping("/api/v1/analytics")
 public class AnalyticsController {

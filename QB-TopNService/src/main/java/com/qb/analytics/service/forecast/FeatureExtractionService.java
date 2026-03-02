@@ -2,6 +2,7 @@ package com.qb.analytics.service.forecast;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qb.analytics.config.DemoConfig;
 import com.qb.analytics.model.AggregateRecord;
 import com.qb.analytics.repository.CassandraServingRepository;
 import com.qb.analytics.repository.S3FeatureStoreRepository;
@@ -13,18 +14,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * FeatureExtractionService:
- *
- * "Features" in simple words:
- * - small numbers we compute from history that help the model predict the future
- * Examples:
- * - avgSales: average daily sales in last 90 days
- * - last7Avg: average of last 7 days
- * - volatility: how much sales fluctuate (stable vs noisy)
- *
- * We store computed features in S3 Feature Store (simulated).
- */
 @Service
 public class FeatureExtractionService {
 
@@ -32,26 +21,27 @@ public class FeatureExtractionService {
     private final CassandraServingRepository cassandra;
     private final S3FeatureStoreRepository s3;
     private final ObjectMapper objectMapper;
+    private final DemoConfig demoConfig;
 
-    public FeatureExtractionService(CassandraServingRepository cassandra, S3FeatureStoreRepository s3, ObjectMapper objectMapper) {
+    public FeatureExtractionService(CassandraServingRepository cassandra, S3FeatureStoreRepository s3, ObjectMapper objectMapper, DemoConfig demoConfig) {
         this.cassandra = cassandra;
         this.s3 = s3;
         this.objectMapper = objectMapper;
+        this.demoConfig = demoConfig;
     }
 
     public void buildAndStoreFeatures(String tenantId, String merchantId, String categoryId, int historyDays) {
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = demoConfig.today();
         String latestDay = cassandra.getLatestAggregateDay(tenantId, merchantId);
         if (latestDay != null) {
             LocalDate latest = LocalDate.parse(latestDay);
-            if (latest.isAfter(endDate)) endDate = latest; // demo: include data for demo day (e.g. 2026-03-03) when server is before that
+            if (latest.isAfter(endDate)) endDate = latest;
         }
         String end = endDate.toString();
         String start = endDate.minusDays(historyDays).toString();
 
         List<AggregateRecord> rows = cassandra.fetchDailyAggregates(tenantId, merchantId, start, end);
 
-        // filter to category, then sort by day so last7Avg is truly "last 7 days by date"
         List<AggregateRecord> forCategory = new ArrayList<>();
         for (AggregateRecord r : rows) {
             if (categoryId.equals(r.getCategoryId())) {
@@ -82,7 +72,6 @@ public class FeatureExtractionService {
             return;
         }
         s3.putFeatures(tenantId, merchantId, categoryId, blob);
-        // Store history JSON from same fetch so getHistoryJson can read from S3 (avoids double fetch for Prophet).
         String historyJson = toHistoryJson(forCategory);
         s3.putHistory(tenantId, merchantId, categoryId, historyJson);
         log.info("FeatureExtraction built and stored tenantId={} merchantId={} categoryId={} dataPoints={} avgSales={} last7Avg={}", tenantId, merchantId, categoryId, series.size(), avg, last7);
@@ -100,9 +89,6 @@ public class FeatureExtractionService {
         }
     }
 
-    /**
-     * Returns data points count from already-stored features (e.g. after buildAndStoreFeatures). Used by pipeline to decide baseline vs Prophet.
-     */
     public int getPointsCountFromStoredFeatures(String tenantId, String merchantId, String categoryId) {
         String featuresJson = s3.getFeatures(tenantId, merchantId, categoryId);
         if (featuresJson == null) return 0;
@@ -115,16 +101,13 @@ public class FeatureExtractionService {
         }
     }
 
-    /**
-     * History JSON for Prophet: array of {"date": "yyyy-MM-dd", "value": revenue}.
-     * Reads from S3 when available (stored by buildAndStoreFeatures); otherwise fetches from Cassandra (e.g. first run or legacy).
-     */
     public String getHistoryJson(String tenantId, String merchantId, String categoryId, int historyDays) {
         String cached = s3.getHistory(tenantId, merchantId, categoryId);
         if (cached != null && !cached.isEmpty()) return cached;
 
-        String end = LocalDate.now().toString();
-        String start = LocalDate.now().minusDays(historyDays).toString();
+        LocalDate today = demoConfig.today();
+        String end = today.toString();
+        String start = today.minusDays(historyDays).toString();
         List<AggregateRecord> rows = cassandra.fetchDailyAggregates(tenantId, merchantId, start, end);
         List<AggregateRecord> forCategory = new ArrayList<>();
         for (AggregateRecord r : rows) {

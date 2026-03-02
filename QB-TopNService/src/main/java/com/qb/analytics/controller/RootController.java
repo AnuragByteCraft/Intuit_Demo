@@ -6,9 +6,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/**
- * Root and /api info so hitting localhost:8080 returns something useful instead of 404.
- */
 @RestController
 public class RootController {
 
@@ -17,7 +14,7 @@ public class RootController {
         return Map.of(
                 "application", "QB Commerce Analytics Demo",
                 "status", "running",
-                "message", "Use the API endpoints below. Ingest: headers X-Tenant-Id + X-Merchant-Id; body: transactionId, categoryId, amount, eventTime. Others: X-Tenant-Id.",
+                "message", "Use the API endpoints below. Ingest: headers X-Tenant-Id + X-Merchant-Id; body: transactionId, categoryId, amount, eventTime; optional: quantity (default 1), currency (default USD). Others: X-Tenant-Id.",
                 "endpoints", Map.of(
                         "health", "GET /actuator/health",
                         "ingest", "POST /api/v1/webhooks/transactions",

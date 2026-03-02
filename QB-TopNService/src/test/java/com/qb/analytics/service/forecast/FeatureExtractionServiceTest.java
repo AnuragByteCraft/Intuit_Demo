@@ -1,5 +1,6 @@
 package com.qb.analytics.service.forecast;
 
+import com.qb.analytics.config.DemoConfig;
 import com.qb.analytics.model.AggregateRecord;
 import com.qb.analytics.repository.CassandraServingRepository;
 import com.qb.analytics.repository.S3FeatureStoreRepository;
@@ -11,9 +12,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Basic tests: getHistoryJson returns from S3 when present; buildAndStoreFeatures stores history.
- */
 class FeatureExtractionServiceTest {
 
     private CassandraServingRepository cassandra;
@@ -24,7 +22,7 @@ class FeatureExtractionServiceTest {
     void setUp() {
         cassandra = new CassandraServingRepository();
         s3 = new S3FeatureStoreRepository();
-        service = new FeatureExtractionService(cassandra, s3, new ObjectMapper());
+        service = new FeatureExtractionService(cassandra, s3, new ObjectMapper(), new DemoConfig());
     }
 
     @Test

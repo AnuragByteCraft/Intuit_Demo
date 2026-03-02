@@ -2,6 +2,7 @@ package com.qb.analytics.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qb.analytics.config.DemoConfig;
 import com.qb.analytics.model.AggregateRecord;
 import com.qb.analytics.model.TopNResponse;
 import com.qb.analytics.repository.CassandraServingRepository;
@@ -21,16 +22,6 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
-/**
- * AggregationService:
- * - scheduled micro-batch job
- * - reads ledger snapshot (simulates consuming from Kafka into OLAP)
- * - writes daily aggregates into Cassandra
- * - materializes Top-N into Cassandra + hot cache
- *
- * In real system: this would be Kafka consumer group + stateful aggregation.
- * For demo: we keep it simple and deterministic.
- */
 @Service
 public class AggregationService {
 
@@ -39,6 +30,7 @@ public class AggregationService {
     private final CassandraServingRepository cassandra;
     private final RedisCacheRepository redis;
     private final ObjectMapper objectMapper;
+    private final DemoConfig demoConfig;
 
     @Value("${demo.topn.defaultN:10}")
     private int defaultTopN;
@@ -49,19 +41,20 @@ public class AggregationService {
     public AggregationService(PostgresLedgerRepository postgres,
                               CassandraServingRepository cassandra,
                               RedisCacheRepository redis,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              DemoConfig demoConfig) {
         this.postgres = postgres;
         this.cassandra = cassandra;
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.demoConfig = demoConfig;
     }
 
-    @Scheduled(fixedDelayString = "${demo.schedules.aggregationDelayMs:15000}") // configurable for demo
+    @Scheduled(fixedDelayString = "${demo.schedules.aggregationDelayMs:15000}")
     public void runAggregation() {
         Map<String, com.qb.analytics.model.TransactionEvent> snapshot = postgres.snapshot();
         log.info("Aggregation run started ledgerSnapshotSize={}", snapshot.size());
 
-        // Phase 1: aggregate in memory by (tenant, merchant, day, category), then batch write (fewer DB writes than per-txn).
         Set<String> affectedTenantMerchant = new HashSet<>();
         Map<String, AggregateRecord> deltas = new HashMap<>();
         for (Map.Entry<String, com.qb.analytics.model.TransactionEvent> entry : snapshot.entrySet()) {
@@ -77,7 +70,7 @@ public class AggregationService {
             com.qb.analytics.model.TransactionEvent e = entry.getValue();
             String day = toDay(e.getEventTime());
             String key = dailyAggKey(tenantId, e.getMerchantId(), day, e.getCategoryId());
-            AggregateRecord ar = new AggregateRecord(tenantId, e.getMerchantId(), e.getCategoryId(), day, e.getAmount(), 1L);
+            AggregateRecord ar = new AggregateRecord(tenantId, e.getMerchantId(), e.getCategoryId(), day, e.getAmount(), e.getEffectiveQuantity());
             deltas.merge(key, ar, (old, newV) -> {
                 old.setRevenue(old.getRevenue() + newV.getRevenue());
                 old.setUnits(old.getUnits() + newV.getUnits());
@@ -89,8 +82,7 @@ public class AggregationService {
             cassandra.batchMergeDailyAggregates(deltas.values());
         }
 
-        // Phase 2: compute materialized Top-N once per affected (tenant, merchant) for current DAILY, WEEKLY, MONTHLY, YEARLY.
-        LocalDate asOf = LocalDate.now();
+        LocalDate asOf = demoConfig.today();
         for (String tenantMerchant : affectedTenantMerchant) {
             String[] tm = tenantMerchant.split(":", 2);
             if (tm.length < 2) continue;
@@ -115,7 +107,7 @@ public class AggregationService {
         if (n <= 0) n = defaultTopN;
         if (n > maxTopN) n = maxTopN;
 
-        BucketRange range = bucketRange(timeframe, LocalDate.now());
+        BucketRange range = bucketRange(timeframe, demoConfig.today());
         String cacheKey = materializedCacheKey(tenantId, merchantId, timeframe, range.bucketStart, metric, n);
         String cached = redis.get(cacheKey);
         if (cached != null) {
@@ -132,7 +124,6 @@ public class AggregationService {
             return stored;
         }
         TopNResponse computed = computeTopNFromDaily(tenantId, merchantId, timeframe, metric, n, range.startDay, range.endDay);
-        // Demo-friendly: if current bucket has no data, use the bucket that contains the latest aggregate day (e.g. eventTime 2026-03-03 when server is Feb 28)
         if (computed.getItems().isEmpty()) {
             String latestDay = cassandra.getLatestAggregateDay(tenantId, merchantId);
             if (latestDay != null) {
@@ -162,7 +153,6 @@ public class AggregationService {
         if (n <= 0) n = defaultTopN;
         if (n > maxTopN) n = maxTopN;
 
-        // For custom date range, we compute from daily aggregates (Cassandra) and cache result.
         String cacheKey = cacheKey(tenantId, merchantId, "CUSTOM", metric, n, startDay, endDay);
         String cached = redis.get(cacheKey);
         if (cached != null) {
@@ -170,7 +160,7 @@ public class AggregationService {
             if (parsed != null) return parsed;
         }
         TopNResponse resp = computeTopNFromDaily(tenantId, merchantId, "CUSTOM", metric, n, startDay, endDay);
-        redis.put(cacheKey, toJson(resp), 120); // 2 min TTL
+        redis.put(cacheKey, toJson(resp), 120);
         return resp;
     }
 
@@ -226,10 +216,6 @@ public class AggregationService {
         }
     }
 
-    /**
-     * For materialized Top-N: resolve the date range for the given timeframe and "as-of" date.
-     * DAILY: single day (today); WEEKLY: Monday–Sunday; MONTHLY: first–last day of month; YEARLY: Jan 1–Dec 31.
-     */
     public static BucketRange bucketRange(String timeframe, LocalDate asOf) {
         if (asOf == null) asOf = LocalDate.now();
         String bucketStart;
@@ -280,7 +266,6 @@ public class AggregationService {
     }
 
     private static String toDay(String isoTime) {
-        // isoTime expected like 2026-02-17T00:00:00Z
         OffsetDateTime odt = OffsetDateTime.parse(isoTime);
         LocalDate d = odt.toLocalDate();
         return d.format(DateTimeFormatter.ISO_LOCAL_DATE);

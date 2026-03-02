@@ -15,10 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * WebhookController:
- * Entry point for merchant platforms (Shopify/POS) to send transactions.
- */
 @RestController
 @RequestMapping("/api/v1/webhooks")
 public class WebhookController {

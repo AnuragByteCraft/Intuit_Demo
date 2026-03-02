@@ -3,6 +3,7 @@ package com.qb.analytics.service.forecast;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.qb.analytics.config.DemoConfig;
 import com.qb.analytics.model.ForecastPoint;
 import com.qb.analytics.repository.S3FeatureStoreRepository;
 import com.qb.analytics.config.ForecastConfig;
@@ -16,31 +17,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Moving Average (baseline) forecast path only.
- * Train: pack features → model JSON. Quality gate: points >= config.minPointsForBaseline (demo default 1). Predict: model JSON → flat line + band.
- * Holds champion model per (tenant, merchant, category). Does not write to store; caller uses ForecastWriteService.
- */
 @Service
 public class MovingAverageForecastService {
 
     private static final Logger log = LoggerFactory.getLogger(MovingAverageForecastService.class);
-    /** Minimum data points for baseline; use config so demo can work with 1 day (default 1). */
-
     private final S3FeatureStoreRepository s3;
     private final ObjectMapper objectMapper;
     private final ForecastConfig config;
+    private final DemoConfig demoConfig;
     private final Map<String, String> championModels = new ConcurrentHashMap<>();
 
-    public MovingAverageForecastService(S3FeatureStoreRepository s3, ObjectMapper objectMapper, ForecastConfig config) {
+    public MovingAverageForecastService(S3FeatureStoreRepository s3, ObjectMapper objectMapper, ForecastConfig config, DemoConfig demoConfig) {
         this.s3 = s3;
         this.objectMapper = objectMapper;
         this.config = config;
+        this.demoConfig = demoConfig;
     }
 
-    /**
-     * Run full baseline path: train → quality gate → save champion → predict. Returns points or empty list.
-     */
     public List<ForecastPoint> runFor(String tenantId, String merchantId, String categoryId, int horizonDays) {
         if (horizonDays <= 0) horizonDays = config.getHorizonDaysDefault();
 
@@ -54,7 +47,6 @@ public class MovingAverageForecastService {
         return predict(tenantId, merchantId, categoryId, horizonDays);
     }
 
-    /** Pack features from S3 into model JSON (type MOVING_AVERAGE_BASELINE). */
     public String train(String tenantId, String merchantId, String categoryId) {
         String featuresJson = s3.getFeatures(tenantId, merchantId, categoryId);
         if (featuresJson == null) {
@@ -72,7 +64,6 @@ public class MovingAverageForecastService {
         }
     }
 
-    /** Baseline quality gate: require at least config.minPointsForBaseline data points (demo default 1). */
     public boolean passesQualityGate(String modelJson) {
         if (modelJson == null) return false;
         try {
@@ -93,7 +84,6 @@ public class MovingAverageForecastService {
         log.info("MovingAverageForecastService champion saved merchantId={} categoryId={}", merchantId, categoryId);
     }
 
-    /** Predict from champion: avgSales per day, band = avg ± volatility. */
     public List<ForecastPoint> predict(String tenantId, String merchantId, String categoryId, int horizonDays) {
         if (horizonDays <= 0) horizonDays = config.getHorizonDaysDefault();
         String modelJson = championModels.get(registryKey(tenantId, merchantId, categoryId));
@@ -104,8 +94,9 @@ public class MovingAverageForecastService {
         double avg = extractDouble(modelJson, "avgSales");
         double vol = extractDouble(modelJson, "volatility");
         List<ForecastPoint> points = new ArrayList<>();
+        LocalDate today = demoConfig.today();
         for (int i = 1; i <= horizonDays; i++) {
-            String date = LocalDate.now().plusDays(i).toString();
+            String date = today.plusDays(i).toString();
             points.add(new ForecastPoint(date, avg, Math.max(0, avg - vol), avg + vol));
         }
         return points;

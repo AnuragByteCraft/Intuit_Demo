@@ -11,11 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * ForecastController:
- * - run pipeline (demo)
- * - fetch forecast
- */
 @RestController
 @RequestMapping("/api/v1/forecast")
 public class ForecastController {

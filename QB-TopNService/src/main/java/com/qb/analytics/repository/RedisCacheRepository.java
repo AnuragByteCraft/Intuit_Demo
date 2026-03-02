@@ -6,11 +6,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Minimal Redis simulation:
- * - get/put with TTL support
- * - putIfAbsent: atomic "set only if absent or expired" to avoid race conditions (idempotency, aggSeen)
- */
 @Repository
 public class RedisCacheRepository {
 
@@ -40,11 +35,6 @@ public class RedisCacheRepository {
         cache.put(key, new Entry(value, exp));
     }
 
-    /**
-     * Atomically set key to value with TTL only if key is absent or already expired.
-     * Prevents race conditions when multiple callers try to "claim" the same key (e.g. idempotency, aggSeen).
-     * @return true if the value was set by this call, false if key already existed and was not expired
-     */
     public boolean putIfAbsent(String key, String value, long ttlSeconds) {
         long now = Instant.now().toEpochMilli();
         long exp = now + (ttlSeconds * 1000);

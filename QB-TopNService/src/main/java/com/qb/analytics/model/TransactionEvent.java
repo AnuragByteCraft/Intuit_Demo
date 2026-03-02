@@ -9,7 +9,6 @@ public class TransactionEvent {
     @NotBlank
     private String transactionId;
 
-    /** Set from X-Merchant-Id header in controller; not required in body. */
     private String merchantId;
 
     @NotBlank
@@ -19,9 +18,11 @@ public class TransactionEvent {
     @Positive
     private Double amount;
 
-    // ISO-8601 string to keep demo simple
     @NotBlank
     private String eventTime;
+
+    private Integer quantity;
+    private String currency;
 
     public TransactionEvent() {}
 
@@ -47,4 +48,14 @@ public class TransactionEvent {
 
     public String getEventTime() { return eventTime; }
     public void setEventTime(String eventTime) { this.eventTime = eventTime; }
+
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+
+    public long getEffectiveQuantity() {
+        return (quantity != null && quantity > 0) ? quantity : 1L;
+    }
 }

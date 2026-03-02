@@ -31,7 +31,6 @@ public class TopNResponse {
     private String tenantId;
     private String merchantId;
     private String timeframe;
-    /** For materialized views (WEEKLY/MONTHLY/YEARLY): start day of the bucket (yyyy-MM-dd). */
     private String bucketStart;
     private String metric;
     private int n;

@@ -23,6 +23,7 @@ com/qb/analytics/MainApplication.class
 com/qb/analytics/repository/S3FeatureStoreRepository.class
 com/qb/analytics/config/WebConfig.class
 com/qb/analytics/service/forecast/ForecastWriteService.class
+com/qb/analytics/config/DemoConfig.class
 com/qb/analytics/repository/PostgresLedgerRepository.class
 com/qb/analytics/service/QueryService.class
 com/qb/analytics/exceptionhandler/GlobalExceptionHandler.class
